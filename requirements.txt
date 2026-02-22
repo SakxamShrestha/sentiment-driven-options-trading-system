@@ -48,3 +48,12 @@ pytest-cov==4.1.0
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.1
+
+# Reddit
+praw==7.7.1
+
+# Alpaca News WebSocket
+websocket-client==1.6.4
+
+# HTTP client (LunarCrush, Alpaca REST news)
+requests==2.31.0

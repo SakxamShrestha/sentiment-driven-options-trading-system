@@ -24,7 +24,15 @@ class Settings:
     ALPACA_API_KEY = os.getenv('ALPACA_API_KEY', '')
     ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY', '')
     ALPACA_BASE_URL = os.getenv('ALPACA_BASE_URL', 'https://paper-api.alpaca.markets')
-    
+    # Alpaca News WebSocket (prod vs sandbox)
+    ALPACA_STREAM_NEWS_URL = os.getenv(
+        'ALPACA_STREAM_NEWS_URL',
+        'wss://stream.data.sandbox.alpaca.markets/v1beta1/news'
+    )
+
+    # LunarCrush API (social sentiment / buzz)
+    LUNARCRUSH_API_KEY = os.getenv('LUNARCRUSH_API_KEY', '')
+
     # Twitter/X API
     TWITTER_BEARER_TOKEN = os.getenv('TWITTER_BEARER_TOKEN', '')
     TWITTER_API_KEY = os.getenv('TWITTER_API_KEY', '')
@@ -67,6 +75,9 @@ class Settings:
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
+    # Data Layer
+    SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH', '')  # default: BASE_DIR/data/tradesent.db
+
     # Monitoring
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     METRICS_ENABLED = os.getenv('METRICS_ENABLED', 'true').lower() == 'true'
