@@ -73,6 +73,7 @@ class Settings:
     # Flask Configuration
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
+    FLASK_PORT = int(os.getenv('FLASK_PORT', '5001'))  # 5001 avoids macOS AirPlay on 5000
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     # Data Layer

@@ -82,10 +82,12 @@ if __name__ == "__main__":
             "(check API keys and websocket-client installation)"
         )
 
+    port = settings.FLASK_PORT
+    logger.info("Dashboard: http://0.0.0.0:%s", port)
     socketio.run(
         app,
         host='0.0.0.0',
-        port=5000,
+        port=port,
         debug=settings.FLASK_DEBUG,
         allow_unsafe_werkzeug=True
     )

@@ -127,8 +127,20 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (see "Connecting Alpaca" below)
 ```
+
+### Connecting Alpaca (news + paper trading)
+
+1. **Sign up for paper trading** at [alpaca.markets](https://alpaca.markets/) and create an account.
+2. **Get API keys**: In the Alpaca dashboard, open "Paper Trading" → "API Keys" and create a key pair.
+3. **Put keys in `.env`** (create from `.env.example` if needed):
+   ```bash
+   ALPACA_API_KEY=your_key_here
+   ALPACA_SECRET_KEY=your_secret_here
+   ```
+4. **News stream**: The app uses Alpaca’s **sandbox** news WebSocket by default (`ALPACA_STREAM_NEWS_URL` in `.env`). No change needed unless you switch to live.
+5. **Verify**: Run `python main.py`. You should see `Alpaca news stream started`. When news arrives, the pipeline will process it and you’ll see logs and data in SQLite/Redis.
 
 ### Run
 
@@ -137,7 +149,7 @@ redis-server   # In a separate terminal
 python main.py
 ```
 
-- API: `http://localhost:5000`
+- Dashboard: `http://localhost:5001` (default; set `FLASK_PORT` in `.env` if 5001 is in use).
 - Dashboard endpoints: `GET /api/trades`, `/api/sentiment`, `/api/alerts`, `/api/live/sentiment`, `/api/live/buzz`, `/api/live/circuit_breaker`
 
 ---
@@ -153,6 +165,7 @@ python main.py
 | `DEFAULT_TICKER` | Default symbol (e.g. SPY) |
 | `SENTIMENT_THRESHOLD_BULLISH` / `SENTIMENT_THRESHOLD_BEARISH` | Signal thresholds |
 | `ENABLE_LIVE_TRADING` | Set `true` only after thorough testing |
+| `FLASK_PORT` | Server port (default `5001`; use when 5000 is taken, e.g. by AirPlay) |
 
 ---
 
