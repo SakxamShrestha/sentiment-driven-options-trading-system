@@ -9,6 +9,8 @@ from flask_socketio import SocketIO
 from config.settings import settings
 from utils.logger import setup_logger
 from api.routes.dashboard import dashboard_bp
+from services.pipeline import NewsPipeline
+from services.data_ingestion import AlpacaNewsStreamService
 
 # Configure logging
 logger = setup_logger(__name__)
@@ -66,7 +68,20 @@ if __name__ == "__main__":
     logger.info(f'Debug Mode: {settings.FLASK_DEBUG}')
     logger.info(f'Default Ticker: {settings.DEFAULT_TICKER}')
     logger.info(f'Live Trading: {settings.ENABLE_LIVE_TRADING}')
-    
+
+    # Setting up the news ingestion pipeline (Alpaca → sentiment → signal → persistence)
+    pipeline = NewsPipeline()
+
+    news_stream = AlpacaNewsStreamService(on_news=pipeline.process)
+    started = news_stream.start()
+    if started:
+        logger.info("Alpaca news stream started")
+    else:
+        logger.warning(
+            "Alpaca news stream not started "
+            "(check API keys and websocket-client installation)"
+        )
+
     socketio.run(
         app,
         host='0.0.0.0',
