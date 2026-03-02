@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TradeSent.AI Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #050816;
+        --bg-elevated: #0b1120;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.08);
+        --accent-strong: rgba(56, 189, 248, 0.18);
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --danger: #f97373;
+        --success: #4ade80;
+        --border-subtle: rgba(148, 163, 184, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #0f172a 0, #020617 55%);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 1120px;
+        padding: 24px 16px 32px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 20px;
+        background: radial-gradient(circle at 30% 10%, #a855f7 0, #22d3ee 40%, #0ea5e9 65%, #0f172a 100%);
+        box-shadow:
+          0 0 0 1px rgba(15, 23, 42, 0.9),
+          0 0 20px rgba(56, 189, 248, 0.45);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.35rem;
+        letter-spacing: 0.04em;
+      }
+
+      .subtitle {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        color: var(--accent);
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr);
+        gap: 16px;
+      }
+
+      @media (max-width: 880px) {
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .card {
+        background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), rgba(15, 23, 42, 0.98));
+        border-radius: 18px;
+        padding: 16px 16px 14px;
+        border: 1px solid var(--border-subtle);
+        box-shadow:
+          0 18px 40px rgba(15, 23, 42, 0.75),
+          0 0 0 1px rgba(15, 23, 42, 0.84);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 10px;
+        gap: 6px;
+      }
+
+      .card-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+
+      .card-body {
+        font-size: 0.85rem;
+      }
+
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--muted);
+      }
+
+      .dot.ok {
+        background: var(--success);
+        box-shadow: 0 0 10px rgba(74, 222, 128, 0.7);
+      }
+
+      .dot.warn {
+        background: #facc15;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .metric {
+        font-size: 1.45rem;
+        font-weight: 600;
+      }
+
+      .metric-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .metric-row {
+        display: flex;
+        gap: 18px;
+        margin-top: 10px;
+      }
+
+      .chip {
+        display: inline-flex;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .chip-neutral {
+        background: rgba(148, 163, 184, 0.18);
+        color: var(--muted);
+      }
+
+      .chip-negative {
+        background: rgba(248, 113, 113, 0.14);
+        color: #fecaca;
+      }
+
+      .list {
+        max-height: 260px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .list-item {
+        border-radius: 10px;
+        padding: 7px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        border: 1px solid transparent;
+      }
+
+      .list-item + .list-item {
+        margin-top: 6px;
+      }
+
+      .list-item:hover {
+        border-color: var(--accent-strong);
+        background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), rgba(15, 23, 42, 0.96));
+      }
+
+      .list-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+
+      .list-title {
+        font-size: 0.82rem;
+      }
+
+      .list-meta {
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      .pill-side {
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+      }
+
+      .pill-side-buy {
+        background: rgba(22, 163, 74, 0.15);
+        color: #bbf7d0;
+      }
+
+      .pill-side-sell {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+
+      .pill-side-hold {
+        background: rgba(148, 163, 184, 0.16);
+        color: var(--muted);
+      }
+
+      .small {
+        font-size: 0.76rem;
+      }
+
+      .timestamp {
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      .footer {
+        margin-top: 20px;
+        text-align: right;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      .link {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <div class="logo"></div>
+          <div>
+            <h1>TradeSent.AI</h1>
+            <div class="subtitle">Real-time sentiment-driven trading sandbox</div>
+          </div>
+        </div>
+        <div>
+          <div class="pill" id="status-pill">
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: var(--success);"></span>
+            <span id="status-text">Backend: Connecting…</span>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <div class="card-header">
+            <div class="card-title">System Snapshot</div>
+            <div class="small muted" id="snapshot-updated">Updated just now</div>
+          </div>
+          <div class="card-body">
+            <div class="status-row">
+              <div class="dot ok" id="dot-status"></div>
+              <div>
+                <div class="small">
+                  Status: <span id="status-label">Unknown</span>
+                </div>
+                <div class="small muted">
+                  Default ticker:
+                  <span id="status-ticker">…</span> · Target latency:
+                  <span id="status-latency">…</span> ms
+                </div>
+              </div>
+            </div>
+
+            <div class="metric-row">
+              <div>
+                <div class="metric" id="metric-score">–</div>
+                <div class="metric-label">Latest sentiment score</div>
+              </div>
+              <div>
+                <div class="metric" id="metric-side">–</div>
+                <div class="metric-label">Current signal</div>
+              </div>
+              <div>
+                <div class="metric" id="metric-model">–</div>
+                <div class="metric-label">Model</div>
+              </div>
+            </div>
+
+            <div class="small muted" id="latest-headline" style="margin-top: 10px;">
+              Waiting for live news from Alpaca…
+            </div>
+
+            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.28);">
+              <div class="small muted" style="margin-bottom: 6px;">
+                Ticker sentiment lookup
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+                <input
+                  id="ticker-input"
+                  type="text"
+                  placeholder="e.g. NIO, PYPL, AAPL"
+                  style="flex:1; padding:6px 8px; border-radius:999px; border:1px solid rgba(148,163,184,0.5); background:rgba(15,23,42,0.92); color:var(--text); font-size:0.8rem;"
+                />
+                <button
+                  id="ticker-button"
+                  type="button"
+                  style="padding:6px 10px; border-radius:999px; border:none; background:var(--accent); color:#020617; font-size:0.8rem; font-weight:500; cursor:pointer;"
+                >
+                  Analyze
+                </button>
+              </div>
+              <div class="small muted" id="ticker-summary">Enter a ticker to see sentiment from recent Alpaca news.</div>
+              <div class="list" id="ticker-articles" style="margin-top:6px; max-height:170px;"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Sentiment</div>
+            <div class="small muted" id="sentiment-count">0 items</div>
+          </div>
+          <div class="card-body">
+            <div class="list" id="sentiment-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <div class="footer">
+        Backend: <code class="small">/api/status</code> · Data:
+        <code class="small">/api/sentiment</code>,
+        <code class="small">/api/live/sentiment</code>
+      </div>
+    </div>
+
+    <script>
+      const statusText = document.getElementById("status-text");
+      const statusLabel = document.getElementById("status-label");
+      const statusTicker = document.getElementById("status-ticker");
+      const statusLatency = document.getElementById("status-latency");
+      const statusPill = document.getElementById("status-pill");
+      const dotStatus = document.getElementById("dot-status");
+      const metricScore = document.getElementById("metric-score");
+      const metricSide = document.getElementById("metric-side");
+      const metricModel = document.getElementById("metric-model");
+      const latestHeadline = document.getElementById("latest-headline");
+      const snapshotUpdated = document.getElementById("snapshot-updated");
+      const sentimentList = document.getElementById("sentiment-list");
+      const sentimentCount = document.getElementById("sentiment-count");
+      const tickerInput = document.getElementById("ticker-input");
+      const tickerButton = document.getElementById("ticker-button");
+      const tickerSummary = document.getElementById("ticker-summary");
+      const tickerArticles = document.getElementById("ticker-articles");
+
+      function setPillState(ok) {
+        if (ok) {
+          statusPill.style.borderColor = "rgba(56, 189, 248, 0.55)";
+          statusText.textContent = "Backend: Online";
+          dotStatus.classList.add("ok");
+        } else {
+          statusPill.style.borderColor = "rgba(248, 113, 113, 0.6)";
+          statusText.textContent = "Backend: Offline";
+          dotStatus.classList.remove("ok");
+          dotStatus.style.background = "#f97373";
+        }
+      }
+
+      function fmtTimeAgo(date) {
+        if (!date) return "";
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.round(diffMs / 1000);
+        if (diffSec < 5) return "just now";
+        if (diffSec < 60) return diffSec + "s ago";
+        const diffMin = Math.round(diffSec / 60);
+        if (diffMin < 60) return diffMin + " min ago";
+        const diffHour = Math.round(diffMin / 60);
+        return diffHour + " h ago";
+      }
+
+      async function fetchStatus() {
+        try {
+          const res = await fetch("/api/status");
+          if (!res.ok) throw new Error("Status " + res.status);
+          const data = await res.json();
+          statusLabel.textContent = data.status || "unknown";
+          statusTicker.textContent = data.default_ticker || "-";
+          statusLatency.textContent = data.target_latency_ms ?? "–";
+          setPillState(true);
+        } catch (e) {
+          console.error("Status fetch failed", e);
+          setPillState(false);
+        }
+      }
+
+      async function fetchLatestSentiment() {
+        try {
+          const res = await fetch("/api/live/sentiment");
+          if (!res.ok) throw new Error("Status " + res.status);
+          const data = await res.json();
+          if (!data || Object.keys(data).length === 0) {
+            metricScore.textContent = "–";
+            metricSide.textContent = "–";
+            metricModel.textContent = "–";
+            latestHeadline.textContent =
+              "No live sentiment yet. Waiting for Alpaca news + scoring…";
+            return;
+          }
+          const score = typeof data.score === "number" ? data.score : NaN;
+          metricScore.textContent = Number.isNaN(score)
+            ? "–"
+            : score.toFixed(3);
+          const side = (data.signal_side || "hold").toUpperCase();
+          metricSide.textContent = side;
+          metricModel.textContent = data.model_used || "–";
+
+          const headline = data.headline || "(no headline)";
+          const src = data.source || "unknown";
+          const symbols = Array.isArray(data.symbols)
+            ? data.symbols.join(", ")
+            : "";
+          latestHeadline.textContent = `${headline} · ${src}${
+            symbols ? " · " + symbols : ""
+          }`;
+
+          snapshotUpdated.textContent = "Updated " + fmtTimeAgo(new Date());
+        } catch (e) {
+          console.error("Latest sentiment fetch failed", e);
+        }
+      }
+
+      function chipForScore(score) {
+        if (typeof score !== "number" || Number.isNaN(score)) {
+          return '<span class="chip chip-neutral">N/A</span>';
+        }
+        if (score >= 0.6) {
+          return '<span class="chip">Strong Bullish</span>';
+        }
+        if (score <= -0.6) {
+          return '<span class="chip chip-negative">Strong Bearish</span>';
+        }
+        if (score > 0.1) {
+          return '<span class="chip">Bullish</span>';
+        }
+        if (score < -0.1) {
+          return '<span class="chip chip-negative">Bearish</span>';
+        }
+        return '<span class="chip chip-neutral">Neutral</span>';
+      }
+
+      async function fetchRecentSentiment() {
+        try {
+          const res = await fetch("/api/sentiment?limit=20");
+          if (!res.ok) throw new Error("Status " + res.status);
+          const items = await res.json();
+          sentimentCount.textContent = `${items.length} item${
+            items.length === 1 ? "" : "s"
+          }`;
+          sentimentList.innerHTML = "";
+          if (!items.length) {
+            sentimentList.innerHTML =
+              '<div class="small muted">No sentiment records yet. Once Alpaca news flows through the pipeline, items will appear here.</div>';
+            return;
+          }
+          for (const item of items) {
+            const score = typeof item.score === "number" ? item.score : NaN;
+            const source = item.source || "unknown";
+            const when = item.created_at || "";
+            const ts = when ? new Date(when) : null;
+            const chip = chipForScore(score);
+            const scoreLabel = Number.isNaN(score)
+              ? "–"
+              : score.toFixed(3).padStart(6, " ");
+            const model = item.model_used || "–";
+            const sourceId = item.source_id || "–";
+            const row = document.createElement("div");
+            row.className = "list-item";
+            row.innerHTML = `
+              <div class="list-title-row">
+                <div class="list-title">
+                  ${chip}
+                  <span style="margin-left:6px;">${source.toUpperCase()}</span>
+                </div>
+                <div class="list-meta">score&nbsp;<strong>${scoreLabel}</strong></div>
+              </div>
+              <div class="list-meta">
+                model: ${model} · source id: ${sourceId}
+              </div>
+              <div class="timestamp">${ts ? fmtTimeAgo(ts) : ""}</div>
+            `;
+            sentimentList.appendChild(row);
+          }
+        } catch (e) {
+          console.error("Recent sentiment fetch failed", e);
+          sentimentList.innerHTML =
+            '<div class="small muted">Unable to load sentiment history.</div>';
+        }
+      }
+
+      function renderTickerResult(result) {
+        if (!result || !tickerSummary || !tickerArticles) return;
+        const { ticker, count, average_score, articles } = result;
+        if (!count) {
+          tickerSummary.textContent = "No recent Alpaca news for " + ticker + ".";
+          tickerArticles.innerHTML = "";
+          return;
+        }
+        const avg = typeof average_score === "number" ? average_score.toFixed(3) : "–";
+        tickerSummary.textContent = "Ticker " + ticker + ": " + count + " article" + (count === 1 ? "" : "s") + ", average score " + avg + ".";
+
+        tickerArticles.innerHTML = "";
+        for (const a of articles) {
+          const score = typeof a.score === "number" ? a.score.toFixed(3) : "–";
+          const src = (a.source || "").toUpperCase();
+          const row = document.createElement("div");
+          row.className = "list-item";
+          const linkHtml = a.url
+            ? '<div class="timestamp"><a class="link" href="' + a.url + '" target="_blank" rel="noopener noreferrer">View article</a></div>'
+            : "";
+          const symbolsMeta = (a.symbols && a.symbols.length ? a.symbols.join(", ") + " · " : "") + (a.model_used || "") + (src ? " · " + src : "");
+          row.innerHTML =
+            '<div class="list-title-row">' +
+              '<div class="list-title">' + (a.headline || "(no headline)") + '</div>' +
+              '<div class="list-meta">score <strong>' + score + '</strong>' + (src ? ' · ' + src : '') + '</div>' +
+            '</div>' +
+            '<div class="list-meta">' + symbolsMeta + '</div>' +
+            linkHtml;
+          tickerArticles.appendChild(row);
+        }
+      }
+
+      async function searchTicker() {
+        const raw = (tickerInput && tickerInput.value) ? tickerInput.value.trim() : "";
+        if (!raw) return;
+        const symbol = raw.toUpperCase();
+        if (tickerSummary) tickerSummary.textContent = "Loading sentiment for " + symbol + "…";
+        if (tickerArticles) tickerArticles.innerHTML = "";
+        try {
+          const res = await fetch("/api/sentiment/by_ticker?ticker=" + encodeURIComponent(symbol));
+          if (!res.ok) throw new Error("Status " + res.status);
+          const data = await res.json();
+          renderTickerResult(data);
+        } catch (e) {
+          console.error("Ticker sentiment fetch failed", e);
+          if (tickerSummary) tickerSummary.textContent = "Unable to load sentiment for " + symbol + ".";
+        }
+      }
+
+      if (tickerButton && tickerInput) {
+        tickerButton.addEventListener("click", searchTicker);
+        tickerInput.addEventListener("keydown", function(e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            searchTicker();
+          }
+        });
+      }
+
+      function tick() {
+        fetchLatestSentiment();
+        fetchRecentSentiment();
+      }
+
+      fetchStatus();
+      tick();
+      setInterval(tick, 7000);
+    </script>
+  </body>
+</html>
+

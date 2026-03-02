@@ -33,6 +33,9 @@ class Settings:
     # LunarCrush API (social sentiment / buzz)
     LUNARCRUSH_API_KEY = os.getenv('LUNARCRUSH_API_KEY', '')
 
+    # NewsAPI.org (backup news source)
+    NEWSAPI_API_KEY = os.getenv('NEWSAPI_API_KEY', '')
+
     # Twitter/X API
     TWITTER_BEARER_TOKEN = os.getenv('TWITTER_BEARER_TOKEN', '')
     TWITTER_API_KEY = os.getenv('TWITTER_API_KEY', '')

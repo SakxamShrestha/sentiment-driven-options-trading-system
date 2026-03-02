@@ -3,7 +3,7 @@ TradeSent.AI - Main entry point.
 Real-time sentiment-driven analysis for automated (paper) trading.
 """
 
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_socketio import SocketIO
 
 from config.settings import settings
@@ -16,7 +16,7 @@ from services.data_ingestion import AlpacaNewsStreamService
 logger = setup_logger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 app.config["SECRET_KEY"] = settings.SECRET_KEY
 app.register_blueprint(dashboard_bp)
 
@@ -30,12 +30,8 @@ socketio = SocketIO(
 
 @app.route("/")
 def index():
-    """Health check endpoint."""
-    return {
-        "status": "running",
-        "message": "TradeSent.AI: Real-Time Sentiment-Driven Analysis for Automated Trading",
-        "version": "1.0.0",
-    }
+    """Serve the web dashboard."""
+    return send_from_directory(app.static_folder, "dashboard.html")
 
 
 @app.route("/api/status")
