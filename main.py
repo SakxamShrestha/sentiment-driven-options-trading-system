@@ -9,6 +9,7 @@ from flask_socketio import SocketIO
 from config.settings import settings
 from utils.logger import setup_logger
 from api.routes.dashboard import dashboard_bp
+from api.routes.trading import trading_bp
 from services.pipeline import NewsPipeline
 from services.data_ingestion import AlpacaNewsStreamService
 
@@ -19,6 +20,7 @@ logger = setup_logger(__name__)
 app = Flask(__name__, static_folder="static")
 app.config["SECRET_KEY"] = settings.SECRET_KEY
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(trading_bp)
 
 # Initialize SocketIO for real-time dashboard updates
 socketio = SocketIO(
