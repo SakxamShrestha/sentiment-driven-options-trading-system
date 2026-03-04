@@ -2,7 +2,6 @@
 Alpaca paper trading routes: account, positions, orders, and order placement.
 """
 
-import json
 from typing import Optional
 
 import requests as req
@@ -179,3 +178,149 @@ def get_quote(symbol: str):
     except Exception as e:
         logger.debug("Quote fetch failed for %s: %s", symbol, e)
         return jsonify({"symbol": symbol, "bid": None, "ask": None, "error": str(e)}), 200
+
+
+@trading_bp.route("/snapshot/<symbol>", methods=["GET"])
+def get_snapshot(symbol: str):
+    """Return latest trade price + daily open for computing change."""
+    symbol = symbol.upper()
+    try:
+        r_trade = req.get(
+            f"{_DATA}/v2/stocks/{symbol}/trades/latest",
+            headers=_HEADERS,
+            timeout=8,
+        )
+        r_trade.raise_for_status()
+        trade = r_trade.json().get("trade", {})
+        last_price = trade.get("p")
+
+        r_bar = req.get(
+            f"{_DATA}/v2/stocks/{symbol}/bars/latest",
+            headers=_HEADERS,
+            timeout=8,
+        )
+        r_bar.raise_for_status()
+        bar = r_bar.json().get("bar", {})
+        open_price = bar.get("o")
+
+        change = None
+        change_pct = None
+        if last_price is not None and open_price:
+            change = float(last_price) - float(open_price)
+            change_pct = (change / float(open_price)) * 100
+
+        return jsonify({
+            "symbol": symbol,
+            "price": last_price,
+            "open": open_price,
+            "high": bar.get("h"),
+            "low": bar.get("l"),
+            "volume": bar.get("v"),
+            "change": change,
+            "change_pct": change_pct,
+            "timestamp": trade.get("t"),
+        })
+    except Exception as e:
+        logger.debug("Snapshot fetch failed for %s: %s", symbol, e)
+        return jsonify({"symbol": symbol, "price": None, "error": str(e)}), 200
+
+
+@trading_bp.route("/bars/<symbol>", methods=["GET"])
+def get_bars(symbol: str):
+    """
+    Return OHLCV bars for charting.
+    Query params: timeframe (1Min|5Min|1Hour|1Day), limit (max 1000).
+    """
+    from datetime import datetime, timezone, timedelta
+
+    symbol = symbol.upper()
+    timeframe = request.args.get("timeframe", "5Min")
+    try:
+        limit = min(int(request.args.get("limit", 120)), 1000)
+    except ValueError:
+        limit = 120
+
+    now = datetime.now(timezone.utc)
+    lookbacks = {
+        "1Min": timedelta(hours=6),
+        "5Min": timedelta(days=2),
+        "1Hour": timedelta(days=14),
+        "1Day": timedelta(days=365),
+    }
+    start = (now - lookbacks.get(timeframe, timedelta(days=2))).isoformat()
+
+    try:
+        r = req.get(
+            f"{_DATA}/v2/stocks/{symbol}/bars",
+            headers=_HEADERS,
+            params={
+                "timeframe": timeframe,
+                "start": start,
+                "limit": limit,
+                "adjustment": "raw",
+                "feed": "iex",
+            },
+            timeout=12,
+        )
+        r.raise_for_status()
+        raw_bars = r.json().get("bars", [])
+        bars = [
+            {"t": b["t"], "o": b["o"], "h": b["h"], "l": b["l"], "c": b["c"], "v": b["v"]}
+            for b in raw_bars
+        ]
+        return jsonify({"symbol": symbol, "timeframe": timeframe, "bars": bars})
+    except Exception as e:
+        logger.debug("Bars fetch failed for %s: %s", symbol, e)
+        return jsonify({"symbol": symbol, "timeframe": timeframe, "bars": [], "error": str(e)}), 200
+
+
+@trading_bp.route("/portfolio-history", methods=["GET"])
+def get_portfolio_history():
+    """
+    Return account portfolio equity history for charting.
+    Query param: period (1D | 1W | 1M | 3M | 1Y | all). Default 1D.
+    Returns: { timestamps: [...], equity: [...], base_value, profit_loss_pct: [...] }
+    """
+    period = request.args.get("period", "1D").upper()
+
+    # Alpaca expects period like "1D", "1W", "1M", "3M", "6M", "1A" (note: 1Y = 1A in their API)
+    period_map = {
+        "1D": ("1D", "5Min"),
+        "1W": ("1W", "1H"),
+        "1M": ("1M", "1D"),
+        "3M": ("3M", "1D"),
+        "1Y": ("1A", "1D"),
+        "ALL": ("all", "1D"),
+    }
+    alpaca_period, timeframe = period_map.get(period, ("1D", "5Min"))
+
+    params = {
+        "timeframe": timeframe,
+        "intraday_reporting": "market_hours",
+        "extended_hours": "false",
+    }
+    if alpaca_period != "all":
+        params["period"] = alpaca_period
+
+    data, err = _get("/v2/account/portfolio/history", params=params)
+    if err:
+        logger.warning("Portfolio history fetch failed: %s", err)
+        return jsonify({"error": err, "timestamps": [], "equity": []}), 502
+
+    timestamps = data.get("timestamp") or []
+    equity = data.get("equity") or []
+    pl_pct = data.get("profit_loss_pct") or []
+    base_value = data.get("base_value", 0)
+
+    # Zip and filter out null equity points
+    points = [
+        {"t": t, "v": e, "pct": p}
+        for t, e, p in zip(timestamps, equity, pl_pct)
+        if e is not None
+    ]
+
+    return jsonify({
+        "period": period,
+        "base_value": base_value,
+        "points": points,
+    })
