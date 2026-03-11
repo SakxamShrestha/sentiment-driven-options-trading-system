@@ -324,3 +324,34 @@ def get_portfolio_history():
         "base_value": base_value,
         "points": points,
     })
+
+
+@trading_bp.route("/backtest/<symbol>", methods=["GET"])
+def run_backtest(symbol: str):
+    """
+    Run a backtest for a symbol over a historical period.
+    Query params:
+      period    – 1W | 1M | 3M | 6M | 1Y  (default 1M)
+      threshold – bullish momentum threshold  (default 0.01)
+      notional  – USD per trade               (default 5000)
+    """
+    from services.backtesting import Backtester
+
+    period = request.args.get("period", "1M").upper()
+    try:
+        threshold = float(request.args.get("threshold", 0.01))
+        notional = float(request.args.get("notional", 5000))
+    except ValueError:
+        threshold, notional = 0.01, 5000.0
+
+    bt = Backtester(
+        symbol=symbol.upper(),
+        period=period,
+        threshold_bullish=threshold,
+        threshold_bearish=-threshold,
+        trade_notional=notional,
+        alpaca_headers=_HEADERS,
+        alpaca_data_url=_DATA,
+    )
+    result = bt.run()
+    return jsonify(result)

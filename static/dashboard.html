@@ -293,6 +293,63 @@
     .learn-card-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
     .learn-card p { margin: 0; }
 
+    /* ── CIRCUIT BREAKER BANNER ── */
+    .cb-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: 10px; margin-bottom: 16px;
+      font-size: 13px; font-weight: 500; border: 1px solid;
+    }
+    .cb-off { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .cb-on  { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .cb-toggle-btn {
+      margin-left: auto; padding: 5px 14px; border-radius: 6px;
+      border: none; font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    .cb-toggle-off { background: #dc2626; color: #fff; }
+    .cb-toggle-on  { background: #16a34a; color: #fff; }
+    .cb-toggle-btn:hover { opacity: 0.85; }
+
+    /* ── MODEL TOGGLE ── */
+    .model-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .model-btn {
+      padding: 6px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+      background: transparent; border: none; color: var(--muted); transition: all 0.15s;
+    }
+    .model-btn.active { background: var(--text); color: #fff; }
+    .model-btn:hover:not(.active) { background: var(--hover); color: var(--text); }
+
+    /* ── LUNARCRUSH BUZZ ── */
+    .buzz-card {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; margin-top: 16px; background: linear-gradient(135deg, #eff6ff 0%, #fef3c7 100%);
+    }
+    .buzz-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 10px; }
+    .buzz-metrics { display: flex; gap: 20px; flex-wrap: wrap; }
+    .buzz-metric { }
+    .buzz-metric .label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .buzz-metric .value { font-size: 18px; font-weight: 700; }
+
+    /* ── REALIZED P&L TABLE ── */
+    .pnl-pos { color: var(--green); font-weight: 600; }
+    .pnl-neg { color: var(--red); font-weight: 600; }
+
+    /* ── BACKTEST PAGE ── */
+    .bt-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px; }
+    .bt-form .form-field { margin: 0; min-width: 140px; }
+    .bt-run-btn {
+      height: 34px; padding: 0 20px; border-radius: 8px; border: none;
+      background: var(--accent); color: #fff; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+    }
+    .bt-run-btn:hover { opacity: 0.88; }
+    .bt-run-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .bt-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .bt-stat { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .bt-stat .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .bt-stat .value { font-size: 20px; font-weight: 700; }
+    @media (max-width: 700px) { .bt-stats-grid { grid-template-columns: repeat(2,1fr); } }
+
     /* ── TOAST & SPINNER ── */
     #toast {
       position: fixed; bottom: 24px; right: 24px; z-index: 9999;
@@ -341,6 +398,10 @@
     <div class="nav-item" data-page="sentiment" onclick="navTo('sentiment', this)">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
       Sentiment
+    </div>
+    <div class="nav-item" data-page="backtest" onclick="navTo('backtest', this)">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Backtest
     </div>
     <div class="nav-item" data-page="learn" onclick="navTo('learn', this)">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -543,9 +604,19 @@
 
       <!-- ── ACTIVITIES ── -->
       <div class="page" id="page-activities">
+        <!-- Realized P&L summary -->
+        <div class="card" id="pnl-summary-card">
+          <div class="card-header">
+            <div class="card-title">Realized P&amp;L — Trade History</div>
+            <span id="pnl-total-badge" style="font-size:13px;font-weight:700;"></span>
+          </div>
+          <div id="pnl-table-area">
+            <div class="empty-state">Loading fill history…</div>
+          </div>
+        </div>
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Activities</div>
+            <div class="card-title">All Activities</div>
             <button onclick="loadActivities()" style="font-size:12px;background:none;border:none;cursor:pointer;color:var(--muted);">↻ Refresh</button>
           </div>
           <table class="data-table">
@@ -565,17 +636,69 @@
 
       <!-- ── SENTIMENT ── -->
       <div class="page" id="page-sentiment">
+        <!-- Circuit Breaker Banner -->
+        <div id="cb-banner" class="cb-banner cb-off">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+          <span id="cb-status-text">Circuit Breaker: OFF — signals are active</span>
+          <button id="cb-toggle-btn" class="cb-toggle-btn cb-toggle-off" onclick="toggleCircuitBreaker()">Trip Breaker</button>
+        </div>
+
         <div class="card">
-          <div class="card-header"><div class="card-title">AI Sentiment Lookup</div></div>
+          <div class="card-header">
+            <div class="card-title">AI Sentiment Lookup</div>
+            <div class="model-toggle">
+              <button class="model-btn active" id="model-btn-finbert" onclick="setModel('finbert')">FinBERT</button>
+              <button class="model-btn" id="model-btn-llama3" onclick="setModel('llama3')">Llama 3</button>
+            </div>
+          </div>
           <div class="sentiment-search-bar">
             <input type="text" id="sentiment-ticker-input" placeholder="Enter ticker symbol (e.g. AAPL, NIO, TSLA)" onkeydown="if(event.key==='Enter') runSentiment()" />
             <button onclick="runSentiment()">Analyze</button>
           </div>
           <div id="sentiment-result-area"></div>
+          <div id="lunarcrush-buzz-area"></div>
         </div>
         <div class="card">
           <div class="card-header"><div class="card-title">Live Stream Sentiment</div><div style="font-size:11px;color:var(--muted);">From Alpaca news stream</div></div>
           <div id="live-sentiment-display"><div class="empty-state">Waiting for live news from Alpaca stream…</div></div>
+        </div>
+      </div>
+
+      <!-- ── BACKTEST ── -->
+      <div class="page" id="page-backtest">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Strategy Backtester</div>
+            <div style="font-size:11px;color:var(--muted);">Momentum-proxy simulation · paper capital $100,000</div>
+          </div>
+          <div class="bt-form">
+            <div class="form-field">
+              <label class="form-label">Symbol</label>
+              <input class="form-input" id="bt-symbol" type="text" placeholder="e.g. AAPL" style="text-transform:uppercase;" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Period</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="bt-period">
+                  <option value="1W">1 Week</option>
+                  <option value="1M" selected>1 Month</option>
+                  <option value="3M">3 Months</option>
+                  <option value="6M">6 Months</option>
+                  <option value="1Y">1 Year</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Signal Threshold</label>
+              <input class="form-input" id="bt-threshold" type="number" step="0.001" min="0.001" max="0.1" value="0.01" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Notional / Trade ($)</label>
+              <input class="form-input" id="bt-notional" type="number" step="500" min="100" value="5000" />
+            </div>
+            <button class="bt-run-btn" id="bt-run-btn" onclick="runBacktest()">▶ Run Backtest</button>
+          </div>
+          <div id="bt-results"></div>
         </div>
       </div>
 
@@ -590,6 +713,10 @@
           <div class="learn-card"><div class="learn-card-title">⚠️ Risk Circuit Breaker</div><p>A safety mechanism that pauses automated signals when extreme market conditions are detected.</p></div>
           <div class="learn-card"><div class="learn-card-title">📄 Paper Trading</div><p>All trades are in Alpaca's paper environment — no real money. Your starting balance is $100,000 virtual USD.</p></div>
           <div class="learn-card"><div class="learn-card-title">📈 Stock Detail Page</div><p>Search any ticker in the top bar to open the stock detail view: live candlestick chart (1m / 5m / 1H / 1D), price, daily change, position, and inline buy/sell form.</p></div>
+          <div class="learn-card"><div class="learn-card-title">🔴 Circuit Breaker</div><p>A kill-switch on the Sentiment page. When tripped, the AI pipeline returns <strong>HOLD</strong> for all signals regardless of score. Click "Trip Breaker" to activate and "Clear" to resume signals.</p></div>
+          <div class="learn-card"><div class="learn-card-title">🤖 FinBERT vs Llama 3</div><p>Toggle between two AI models for sentiment scoring. FinBERT is a fast, locally-run financial BERT model. Llama 3 uses the Groq API for large-language-model reasoning (requires GROQ_API_KEY in .env).</p></div>
+          <div class="learn-card"><div class="learn-card-title">🌙 LunarCrush Social Buzz</div><p>After running a Sentiment lookup, the Social Buzz card shows Galaxy Score and social volume from LunarCrush — a measure of how much social activity the stock is generating (requires LUNARCRUSH_API_KEY in .env).</p></div>
+          <div class="learn-card"><div class="learn-card-title">🔬 Backtester</div><p>Replays historical OHLCV bars for any symbol to simulate what returns a momentum-proxy strategy would have achieved. Set the period, signal threshold, and per-trade notional, then click Run Backtest to see trade-by-trade results.</p></div>
         </div>
       </div>
 
@@ -714,9 +841,9 @@
       home: () => { loadAccount(); loadPositionsHome(); loadPortfolioChart('1D'); },
       positions: loadPositions,
       orders: loadOrders,
-      activities: loadActivities,
+      activities: () => { loadActivities(); loadRealizedPnl(); },
       balances: loadBalances,
-      sentiment: loadLiveSentiment,
+      sentiment: () => { loadLiveSentiment(); loadCircuitBreaker(); },
     };
     if (loaders[page]) loaders[page]();
   }
@@ -981,6 +1108,7 @@
       const d = await r.json();
       if (!r.ok) { showToast('Order failed: ' + (d.error || 'Unknown error'), 'error'); return; }
       showToast(`${side.toUpperCase()} ${qty} ${currentStockSymbol} submitted ✓`, 'success');
+      logTrade({ order_id: d.id, symbol: currentStockSymbol, side, qty, price: d.filled_avg_price });
       loadAccount();
       setTimeout(() => loadStockPosition(currentStockSymbol), 1500);
     } catch (e) { showToast('Order failed: ' + e.message, 'error'); }
@@ -1284,6 +1412,7 @@
       const d = await r.json();
       if (!r.ok) { showToast('Order failed: ' + (d.error || 'Unknown error'), 'error'); return; }
       showToast(`${side.toUpperCase()} ${qty} ${sym} submitted ✓`, 'success');
+      logTrade({ order_id: d.id, symbol: sym, side, qty, price: d.filled_avg_price });
       loadAccount();
     } catch (e) { showToast('Order failed: ' + e.message, 'error'); }
     finally {
@@ -1292,14 +1421,187 @@
     }
   }
 
+  // ── CIRCUIT BREAKER ──
+  let cbTripped = false;
+
+  async function loadCircuitBreaker() {
+    try {
+      const r = await fetch('/api/circuit-breaker');
+      const d = await r.json();
+      cbTripped = !!d.tripped;
+      renderCbBanner();
+    } catch (e) { console.error('CB load error', e); }
+  }
+
+  function renderCbBanner() {
+    const banner = document.getElementById('cb-banner');
+    const statusText = document.getElementById('cb-status-text');
+    const btn = document.getElementById('cb-toggle-btn');
+    if (cbTripped) {
+      banner.className = 'cb-banner cb-on';
+      statusText.textContent = 'Circuit Breaker: TRIPPED — all signals paused (HOLD only)';
+      btn.textContent = 'Clear Breaker';
+      btn.className = 'cb-toggle-btn cb-toggle-on';
+    } else {
+      banner.className = 'cb-banner cb-off';
+      statusText.textContent = 'Circuit Breaker: OFF — signals are active';
+      btn.textContent = 'Trip Breaker';
+      btn.className = 'cb-toggle-btn cb-toggle-off';
+    }
+  }
+
+  async function toggleCircuitBreaker() {
+    const newState = !cbTripped;
+    try {
+      const r = await fetch('/api/circuit-breaker', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tripped: newState }),
+      });
+      const d = await r.json();
+      cbTripped = d.tripped;
+      renderCbBanner();
+      showToast(cbTripped ? 'Circuit breaker TRIPPED — signals paused' : 'Circuit breaker cleared — signals active',
+        cbTripped ? 'error' : 'success');
+    } catch (e) { showToast('Failed to update circuit breaker', 'error'); }
+  }
+
+  // ── TRADE LOG ──
+  async function logTrade({ order_id, symbol, side, qty, price }) {
+    try {
+      await fetch('/api/log-trade', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id, symbol, side, qty, price }),
+      });
+    } catch (e) { console.warn('Trade log error', e); }
+  }
+
+  // ── REALIZED P&L ──
+  async function loadRealizedPnl() {
+    const area = document.getElementById('pnl-table-area');
+    const badge = document.getElementById('pnl-total-badge');
+    area.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+    try {
+      const r = await fetch('/api/alpaca/activities?type=FILL');
+      const fills = await r.json();
+      if (!fills.length) {
+        area.innerHTML = '<div class="empty-state">No filled trades yet — place some orders to see P&L history</div>';
+        badge.textContent = '';
+        return;
+      }
+
+      // Group buys/sells by symbol and compute realized P&L
+      // Pair each SELL with the most recent BUY using a simple FIFO approach
+      const bySymbol = {};
+      fills.forEach(f => {
+        const sym = f.symbol;
+        if (!sym || !f.side || !f.qty || !f.price) return;
+        if (!bySymbol[sym]) bySymbol[sym] = { buys: [], sells: [], trades: [] };
+        const entry = { qty: Math.abs(parseFloat(f.qty)), price: parseFloat(f.price), time: f.transaction_time };
+        if (f.side === 'buy') bySymbol[sym].buys.push(entry);
+        else if (f.side === 'sell') bySymbol[sym].sells.push(entry);
+      });
+
+      let rows = [];
+      let totalPnl = 0;
+      Object.entries(bySymbol).forEach(([sym, data]) => {
+        const buyQueue = [...data.buys];
+        data.sells.forEach(sell => {
+          let remaining = sell.qty;
+          let costBasis = 0;
+          let matched = 0;
+          while (remaining > 0 && buyQueue.length) {
+            const buy = buyQueue[0];
+            const taken = Math.min(buy.qty, remaining);
+            costBasis += taken * buy.price;
+            matched += taken;
+            buy.qty -= taken;
+            if (buy.qty <= 0) buyQueue.shift();
+            remaining -= taken;
+          }
+          if (matched > 0) {
+            const avgEntry = costBasis / matched;
+            const pnl = (sell.price - avgEntry) * matched;
+            const pnlPct = ((sell.price - avgEntry) / avgEntry) * 100;
+            totalPnl += pnl;
+            rows.push({ sym, qty: matched, entry: avgEntry, exit: sell.price, pnl, pnlPct, time: sell.time });
+          }
+        });
+      });
+
+      if (!rows.length) {
+        area.innerHTML = '<div class="empty-state">No completed (matched buy+sell) trades yet</div>';
+        badge.textContent = '';
+        return;
+      }
+
+      rows.sort((a, b) => new Date(b.time) - new Date(a.time));
+      const sign = totalPnl >= 0 ? '+' : '';
+      badge.innerHTML = `<span class="${totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg'}">${sign}${fmt(totalPnl)} total realized</span>`;
+
+      area.innerHTML = `<table class="data-table">
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg Entry</th><th>Exit Price</th><th>Realized P&L</th><th>P&L %</th><th>Closed At</th></tr></thead>
+        <tbody>${rows.map(t => `<tr>
+          <td class="symbol-cell" onclick="openStock('${t.sym}')">${t.sym}</td>
+          <td>${t.qty.toFixed(4)}</td>
+          <td>${fmt(t.entry)}</td>
+          <td>${fmt(t.exit)}</td>
+          <td class="${t.pnl >= 0 ? 'pnl-pos' : 'pnl-neg'}">${t.pnl >= 0 ? '+' : ''}${fmt(t.pnl)}</td>
+          <td class="${t.pnlPct >= 0 ? 'pnl-pos' : 'pnl-neg'}">${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(2)}%</td>
+          <td>${fmtDate(t.time)}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      area.innerHTML = '<div class="empty-state">Unable to load P&L history</div>';
+    }
+  }
+
+  // ── MODEL TOGGLE ──
+  let currentModel = 'finbert';
+  function setModel(model) {
+    currentModel = model;
+    document.getElementById('model-btn-finbert').classList.toggle('active', model === 'finbert');
+    document.getElementById('model-btn-llama3').classList.toggle('active', model === 'llama3');
+  }
+
+  // ── LUNARCRUSH BUZZ ──
+  async function loadLunarCrushBuzz(ticker) {
+    const area = document.getElementById('lunarcrush-buzz-area');
+    area.innerHTML = '';
+    try {
+      const r = await fetch('/api/lunarcrush/' + encodeURIComponent(ticker));
+      const d = await r.json();
+      if (!d.available) {
+        area.innerHTML = `<div style="font-size:11px;color:var(--muted);margin-top:10px;">LunarCrush social data unavailable (add LUNARCRUSH_API_KEY to .env to enable)</div>`;
+        return;
+      }
+      const m = d.metrics || d;
+      area.innerHTML = `
+        <div class="buzz-card">
+          <div class="buzz-card-title">🌙 LunarCrush Social Buzz — ${ticker}</div>
+          <div class="buzz-metrics">
+            ${m.galaxy_score !== undefined ? `<div class="buzz-metric"><div class="label">Galaxy Score</div><div class="value" style="color:var(--accent);">${m.galaxy_score}</div></div>` : ''}
+            ${m.social_volume !== undefined ? `<div class="buzz-metric"><div class="label">Social Volume</div><div class="value">${Number(m.social_volume).toLocaleString()}</div></div>` : ''}
+            ${m.social_score !== undefined ? `<div class="buzz-metric"><div class="label">Social Score</div><div class="value">${m.social_score}</div></div>` : ''}
+            ${m.sentiment !== undefined ? `<div class="buzz-metric"><div class="label">Avg Sentiment</div><div class="value ${parseFloat(m.sentiment) >= 0 ? 'pos' : 'neg'}">${parseFloat(m.sentiment).toFixed(2)}</div></div>` : ''}
+            ${m.market_dominance !== undefined ? `<div class="buzz-metric"><div class="label">Market Dom.</div><div class="value">${m.market_dominance}%</div></div>` : ''}
+          </div>
+        </div>`;
+    } catch (e) { console.warn('LunarCrush error', e); }
+  }
+
   // ── SENTIMENT PAGE ──
   async function runSentiment() {
     const ticker = document.getElementById('sentiment-ticker-input').value.trim().toUpperCase();
     if (!ticker) return;
     const area = document.getElementById('sentiment-result-area');
-    area.innerHTML = '<div class="empty-state"><span class="spinner"></span> Analyzing ' + ticker + '…</div>';
+    area.innerHTML = '<div class="empty-state"><span class="spinner"></span> Analyzing ' + ticker + ' with ' + (currentModel === 'llama3' ? 'Llama 3' : 'FinBERT') + '…</div>';
+    document.getElementById('lunarcrush-buzz-area').innerHTML = '';
+
+    const endpoint = currentModel === 'llama3'
+      ? '/api/sentiment/by_ticker_llama?ticker=' + encodeURIComponent(ticker) + '&limit=6'
+      : '/api/sentiment/by_ticker?ticker=' + encodeURIComponent(ticker) + '&limit=12';
     try {
-      const r = await fetch('/api/sentiment/by_ticker?ticker=' + encodeURIComponent(ticker) + '&limit=12');
+      const r = await fetch(endpoint);
       if (!r.ok) throw new Error('Status ' + r.status);
       const d = await r.json();
       if (!d.count) { area.innerHTML = '<div class="empty-state">No news found for ' + ticker + '</div>'; return; }
@@ -1308,11 +1610,13 @@
         : avg >= 0.2 ? '<span class="chip chip-bullish">Bullish</span>'
         : avg <= -0.2 ? '<span class="chip chip-bearish">Bearish</span>'
         : '<span class="chip chip-neutral">Neutral</span>';
+      const modelLabel = d.model === 'llama3' ? 'Llama 3 (Groq)' : 'FinBERT';
       area.innerHTML = `
-        <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:16px;">
+        <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
           <div class="sentiment-score-big ${avg !== null && avg >= 0 ? 'pos' : 'neg'}">${avg !== null ? avg.toFixed(3) : '–'}</div>
           ${chip}
           <div style="font-size:12px;color:var(--muted);">${d.count} article${d.count===1?'':'s'} · ${ticker}</div>
+          <div style="font-size:11px;background:var(--hover);padding:2px 8px;border-radius:6px;color:var(--muted);">Model: ${modelLabel}</div>
         </div>
         <div class="articles-list">
           ${d.articles.map(a => {
@@ -1328,6 +1632,8 @@
             </div>`;
           }).join('')}
         </div>`;
+      // Load LunarCrush after rendering sentiment
+      loadLunarCrushBuzz(ticker);
     } catch (e) { area.innerHTML = '<div class="empty-state">Unable to analyze ' + ticker + ': ' + e.message + '</div>'; }
   }
 
@@ -1432,6 +1738,102 @@
 
     } catch (e) {
       container.innerHTML = '<div class="portfolio-chart-loading">Chart unavailable: ' + e.message + '</div>';
+    }
+  }
+
+  // ── BACKTEST ──
+  async function runBacktest() {
+    const symbol = (document.getElementById('bt-symbol').value || '').trim().toUpperCase();
+    if (!symbol) { showToast('Enter a symbol first', 'error'); return; }
+    const period = document.getElementById('bt-period').value;
+    const threshold = parseFloat(document.getElementById('bt-threshold').value) || 0.01;
+    const notional = parseFloat(document.getElementById('bt-notional').value) || 5000;
+
+    const btn = document.getElementById('bt-run-btn');
+    const results = document.getElementById('bt-results');
+    btn.disabled = true;
+    btn.textContent = '⟳ Running…';
+    results.innerHTML = '<div class="empty-state"><span class="spinner"></span> Fetching bars and simulating…</div>';
+
+    try {
+      const url = `/api/alpaca/backtest/${symbol}?period=${period}&threshold=${threshold}&notional=${notional}`;
+      const r = await fetch(url);
+      const d = await r.json();
+
+      if (d.error) {
+        results.innerHTML = `<div class="empty-state">${d.error}</div>`;
+        return;
+      }
+
+      const retCls = d.total_return_pct >= 0 ? 'pos' : 'neg';
+      const retSign = d.total_return_pct >= 0 ? '+' : '';
+      const ddCls = d.max_drawdown_pct > 5 ? 'neg' : 'pos';
+
+      let statsHtml = `
+        <div class="bt-stats-grid">
+          <div class="bt-stat">
+            <div class="label">Total Return</div>
+            <div class="value ${retCls}">${retSign}${d.total_return_pct.toFixed(2)}%</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Win Rate</div>
+            <div class="value">${d.win_rate.toFixed(1)}%</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Max Drawdown</div>
+            <div class="value ${ddCls}">${d.max_drawdown_pct.toFixed(2)}%</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Trades</div>
+            <div class="value">${d.trade_count}</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Bars Analysed</div>
+            <div class="value">${d.bars_count}</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Starting Capital</div>
+            <div class="value">${fmt(d.starting_equity)}</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Final Equity</div>
+            <div class="value ${retCls}">${fmt(d.final_equity)}</div>
+          </div>
+          <div class="bt-stat">
+            <div class="label">Period / Symbol</div>
+            <div class="value" style="font-size:14px;">${d.symbol} · ${d.period}</div>
+          </div>
+        </div>`;
+
+      let tableHtml = '';
+      if (d.trades && d.trades.length) {
+        tableHtml = `
+          <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Trade Log</div>
+          <table class="data-table">
+            <thead><tr><th>Symbol</th><th>Entry Time</th><th>Exit Time</th><th>Shares</th><th>Entry $</th><th>Exit $</th><th>P&L</th><th>P&L %</th><th>Bars Held</th><th>Exit Reason</th></tr></thead>
+            <tbody>${d.trades.map(t => `<tr>
+              <td class="symbol-cell" onclick="openStock('${t.symbol}')">${t.symbol}</td>
+              <td style="font-size:11px;">${fmtDate(t.entry_time)}</td>
+              <td style="font-size:11px;">${fmtDate(t.exit_time)}</td>
+              <td>${t.shares}</td>
+              <td>${fmt(t.entry_price)}</td>
+              <td>${fmt(t.exit_price)}</td>
+              <td class="${t.pnl >= 0 ? 'pnl-pos' : 'pnl-neg'}">${t.pnl >= 0 ? '+' : ''}${fmt(t.pnl)}</td>
+              <td class="${t.pnl_pct >= 0 ? 'pnl-pos' : 'pnl-neg'}">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(3)}%</td>
+              <td>${t.bars_held}</td>
+              <td style="font-size:11px;color:var(--muted);">${t.exit_reason}</td>
+            </tr>`).join('')}</tbody>
+          </table>`;
+      } else {
+        tableHtml = '<div class="empty-state" style="margin-top:12px;">No trades were triggered with this threshold — try lowering the signal threshold</div>';
+      }
+
+      results.innerHTML = statsHtml + tableHtml;
+    } catch (e) {
+      results.innerHTML = `<div class="empty-state">Backtest error: ${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '▶ Run Backtest';
     }
   }
 

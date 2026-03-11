@@ -1,110 +1,66 @@
 # TradeSent.AI
 
-**Real-Time Sentiment-Driven Analysis for Automated Trading**
+**AI-Powered Paper Trading Simulator with Real-Time Sentiment Analysis**
 
-An automated trading system that listens to real-time financial news and social sentiment, reduces "news-to-trade" latency for retail users, and provides a data-driven overview of market sentiment. The system supports paper trading (with user-approved settings) and a web-based monitoring dashboard.
-
----
-
-## Problem Description and Motivation
-
-Retail traders often struggle to react to market-moving news as quickly as institutional high-frequency trading (HFT) systems. Standard finance news consumption is fragmented and manual, leading to delayed decision-making and missed opportunities in volatile markets. Existing retail trading platforms like Robinhood and Webull are typically designed for manual entry rather than automated, sentiment-driven workflows.
-
-**Goal:** Design and implement an automated trading system (with user-approved settings) that listens to real-time financial news and social sentiment, reduces news-to-trade latency, and provides a clear, data-driven overview of market sentiment.
+TradeSent.AI is a full-stack paper trading simulator that combines multi-source financial news ingestion, AI sentiment scoring (FinBERT / Llama 3), and Alpaca's paper trading API into a single interactive dashboard. Think of it as a Bloomberg Terminal lite — but for learning and strategy testing.
 
 ---
 
-## Final Product
+## What It Does
 
-- **Automated trading engine** – Executes paper trades based on sentiment thresholds and user rules
-- **Web-based monitoring dashboard** – Live sentiment trends, trade history, and high-impact alerts
-- **Persistent storage** – Trade logs and sentiment metadata across sessions
-- **Secure API authentication** – Environment-based credentials
-- **Responsive interface** – Real-time updates via WebSocket
-- **Live demo** – Paper trading performance demonstration
-
----
-
-## System Architecture (Three-Tier)
-
-| Layer | Role |
-|-------|------|
-| **Ingestion** | Alpaca News WebSocket, LunarCrush API; optional Twitter/Reddit |
-| **Intelligence** | Sentiment scoring (FinBERT / Llama 3), trade signals, risk circuit breaker |
-| **Data** | Redis (live state), SQLite (trade logs, sentiment metadata, alerts) |
-
-Ingestion pushes data to the intelligence layer. The intelligence layer enforces trading rules and interacts with the database and Alpaca trading API to execute and record orders.
+- **Paper trade** stocks using Alpaca's paper environment ($100,000 virtual USD)
+- **Search any ticker** for a live candlestick chart (1m / 5m / 1H / 1D), price, and daily change
+- **AI sentiment scoring** on recent news per ticker using FinBERT or Llama 3 (via Groq)
+- **LunarCrush social buzz** — Galaxy Score and social volume per ticker
+- **Risk circuit breaker** — one-click toggle to pause all automated signals
+- **Backtester** — simulate a momentum strategy on historical OHLCV bars
+- **Realized P&L tracker** — computed from fill activity history
+- **Portfolio equity chart** — live area chart of your paper portfolio over time
+- **Trade log** — every order placed through the dashboard is persisted to SQLite
 
 ---
 
-## Platform and Technologies
+## System Architecture
+
+```
+┌─ Ingestion ──────────────────────────────────────────────┐
+│  Alpaca News WebSocket · NewsAPI · StockTwits             │
+│  Yahoo Finance RSS · Finviz scraper                       │
+└──────────────────────┬───────────────────────────────────┘
+                       │
+┌─ Intelligence ────────▼──────────────────────────────────┐
+│  NewsPipeline → SentimentEngine (FinBERT / Llama 3)      │
+│  TradeSignalService · Risk Circuit Breaker                │
+└──────────────────────┬───────────────────────────────────┘
+                       │
+┌─ Data ────────────────▼──────────────────────────────────┐
+│  Redis (live state)  ·  SQLite (trade log, sentiment)    │
+└──────────────────────────────────────────────────────────┘
+                       │
+┌─ Backend API ─────────▼──────────────────────────────────┐
+│  Flask · api/routes/dashboard.py · api/routes/trading.py │
+└──────────────────────┬───────────────────────────────────┘
+                       │
+┌─ Frontend ────────────▼──────────────────────────────────┐
+│  HTML/CSS/JS SPA · TradingView Lightweight Charts        │
+│  http://localhost:5001                                    │
+└──────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Platform | Web-based dashboard + automated backend engine |
-| Backend | Python, Flask, Flask-SocketIO |
-| Frontend | React or Streamlit |
-| Database | Redis (live state), SQLite (historical trades) |
-| APIs | Alpaca (trading + news), LunarCrush (social sentiment) |
-| AI | FinBERT, Llama 3 (e.g. via Groq) |
-| Deployment | Render, AWS, or similar |
-| Version Control | Git, GitHub |
-
----
-
-## Core Functionalities
-
-- **Real-Time Data Ingestion** – News streaming via Alpaca News WebSocket, social data via LunarCrush
-- **Sentiment Analysis** – Automated scoring using FinBERT and Llama 3
-- **Automated Trade Execution** – Paper trading orders based on sentiment thresholds
-- **Visual Dashboard**
-  - Live sentiment scores and social "buzz" metrics
-  - Successful vs. unsuccessful sentiment-driven trades
-  - Active alerts for high-impact news events
-- **Persistent Data Storage** – Sentiment scores and trade history across sessions
-- **Responsive Design** – Desktop-accessible during trading hours
-
----
-
-## Project Structure
-
-```
-Stock-Tracker-by-Sakxam/
-├── config/                 # Configuration
-│   └── settings.py
-├── db/                     # Data layer
-│   ├── redis_state.py      # Live state (Redis)
-│   └── sqlite_repository.py # Trade history, sentiment, alerts (SQLite)
-├── models/                 # Data models
-│   ├── news_item.py
-│   ├── social_post.py
-│   └── trade_log.py
-├── services/
-│   ├── data_ingestion/     # Ingestion layer
-│   │   ├── alpaca_news_service.py
-│   │   ├── lunarcrush_service.py
-│   │   ├── twitter_service.py
-│   │   └── reddit_service.py
-│   ├── intelligence/       # Intelligence layer
-│   │   ├── sentiment_engine.py  # FinBERT / Llama 3
-│   │   └── trade_signal.py      # Buy/sell/hold
-│   ├── sentiment/
-│   └── trading/
-├── api/
-│   ├── routes/
-│   │   └── dashboard.py    # /api/trades, /api/sentiment, /api/alerts, /api/live/*
-│   └── websocket/
-├── utils/
-├── data/                   # SQLite DB, streams, historical
-├── logs/
-├── tests/
-├── docs/                   # Project proposal, architecture details
-├── main.py                 # Flask + SocketIO entry
-├── requirements.txt
-├── .env.example
-├── ARCHITECTURE.md
-└── IMPLEMENTATION_PLAN.md
-```
+| Backend | Python 3.10+, Flask |
+| Frontend | HTML / CSS / JavaScript (SPA-lite) |
+| Charts | TradingView Lightweight Charts v4 |
+| Database | Redis (live state), SQLite (history) |
+| Broker API | Alpaca Paper Trading API |
+| News | Alpaca News WebSocket + REST, NewsAPI.org, StockTwits, Yahoo RSS, Finviz |
+| AI | FinBERT (`ProsusAI/finbert` via HuggingFace), Llama 3 via Groq API |
+| Social | LunarCrush API v4 |
 
 ---
 
@@ -113,8 +69,8 @@ Stock-Tracker-by-Sakxam/
 ### Prerequisites
 
 - Python 3.10+
-- Redis server
-- API keys: Alpaca (paper), LunarCrush; optional: Twitter, Reddit, Groq, Anthropic
+- Redis server (`brew install redis` on macOS, then `redis-server`)
+- Alpaca account at [alpaca.markets](https://alpaca.markets/) with **Paper Trading** keys
 
 ### Installation
 
@@ -127,99 +83,150 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your API keys (see "Connecting Alpaca" below)
+# Edit .env with your keys
 ```
 
-### Connecting Alpaca (news + paper trading)
+### Connecting Alpaca
 
-1. **Sign up for paper trading** at [alpaca.markets](https://alpaca.markets/) and create an account.
-2. **Get API keys**: In the Alpaca dashboard, open "Paper Trading" → "API Keys" and create a key pair.
-3. **Put keys in `.env`** (create from `.env.example` if needed):
-   ```bash
-   ALPACA_API_KEY=your_key_here
-   ALPACA_SECRET_KEY=your_secret_here
+1. Sign up at [alpaca.markets](https://alpaca.markets/) and select **Paper Trading**
+2. Go to **Paper Trading → API Keys** → Generate a new key pair
+3. Set in `.env`:
    ```
-4. **News stream**: The app uses Alpaca’s **sandbox** news WebSocket by default (`ALPACA_STREAM_NEWS_URL` in `.env`). No change needed unless you switch to live.
-5. **Verify**: Run `python main.py`. You should see `Alpaca news stream started`. When news arrives, the pipeline will process it and you’ll see logs and data in SQLite/Redis.
+   ALPACA_API_KEY=your_key_id
+   ALPACA_SECRET_KEY=your_secret_key
+   ALPACA_BASE_URL=https://paper-api.alpaca.markets
+   ```
+
+### Optional API Keys (in `.env`)
+
+| Key | Feature it unlocks |
+|-----|--------------------|
+| `NEWSAPI_API_KEY` | More news articles in sentiment lookup |
+| `LUNARCRUSH_API_KEY` | Social buzz card (Galaxy Score, social volume) on Sentiment page |
+| `GROQ_API_KEY` | Llama 3 model toggle on Sentiment page |
 
 ### Run
 
 ```bash
-redis-server   # In a separate terminal
-python main.py
+redis-server &          # start Redis in background
+python main.py          # start Flask on port 5001
 ```
 
-- Dashboard: `http://localhost:5001` (default; set `FLASK_PORT` in `.env` if 5001 is in use).
-- Dashboard endpoints: `GET /api/trades`, `/api/sentiment`, `/api/alerts`, `/api/live/sentiment`, `/api/live/buzz`, `/api/live/circuit_breaker`
+Open **http://localhost:5001** in your browser.
+
+> Set `FLASK_PORT=5002` in `.env` if port 5001 is in use.
 
 ---
 
-## Configuration (.env)
+## Dashboard Features
+
+| Page | What you see |
+|------|-------------|
+| **Home** | Portfolio equity chart, balances, top positions, quick Buy/Sell panel |
+| **Account → Positions** | All open positions with unrealized P&L |
+| **Account → Orders** | Order history with cancel button for open orders |
+| **Account → Activities** | Fill history + Realized P&L table (FIFO-computed) |
+| **Account → Balances** | Full account balance breakdown |
+| **Sentiment** | Circuit breaker toggle · FinBERT / Llama 3 model toggle · per-ticker analysis · LunarCrush social buzz |
+| **Backtest** | Momentum-proxy backtest over 1W / 1M / 3M / 6M / 1Y history |
+| **Learn** | How TradeSent.AI works — all features explained |
+
+---
+
+## API Routes
+
+### Dashboard (`/api/...`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/trades` | Recent trade log (SQLite) |
+| GET | `/api/sentiment` | Recent sentiment metadata |
+| GET | `/api/alerts` | High-impact alerts |
+| GET | `/api/live/sentiment` | Latest sentiment from Redis |
+| GET | `/api/circuit-breaker` | Circuit breaker state |
+| POST | `/api/circuit-breaker` | Set circuit breaker `{ tripped: bool }` |
+| POST | `/api/log-trade` | Log a trade to SQLite |
+| GET | `/api/sentiment/by_ticker` | On-demand FinBERT scoring |
+| GET | `/api/sentiment/by_ticker_llama` | On-demand Llama 3 scoring |
+| GET | `/api/lunarcrush/<symbol>` | LunarCrush social buzz |
+
+### Trading (`/api/alpaca/...`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/alpaca/account` | Account details |
+| GET | `/api/alpaca/positions` | Open positions |
+| GET | `/api/alpaca/orders` | Orders |
+| GET | `/api/alpaca/activities` | Fill history |
+| POST | `/api/alpaca/order` | Place order |
+| DELETE | `/api/alpaca/order/<id>` | Cancel order |
+| GET | `/api/alpaca/snapshot/<symbol>` | Price + daily change |
+| GET | `/api/alpaca/bars/<symbol>` | OHLCV bars for charting |
+| GET | `/api/alpaca/portfolio-history` | Portfolio equity over time |
+| GET | `/api/alpaca/backtest/<symbol>` | Run momentum backtest |
+
+---
+
+## Configuration (`.env`)
 
 | Variable | Description |
 |----------|-------------|
-| `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` | Alpaca paper/live keys |
-| `ALPACA_STREAM_NEWS_URL` | News WebSocket (default: sandbox) |
-| `LUNARCRUSH_API_KEY` | LunarCrush API key |
-| `REDIS_HOST`, `REDIS_PORT` | Redis for live state |
-| `DEFAULT_TICKER` | Default symbol (e.g. SPY) |
-| `SENTIMENT_THRESHOLD_BULLISH` / `SENTIMENT_THRESHOLD_BEARISH` | Signal thresholds |
-| `ENABLE_LIVE_TRADING` | Set `true` only after thorough testing |
-| `FLASK_PORT` | Server port (default `5001`; use when 5000 is taken, e.g. by AirPlay) |
+| `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` | Alpaca paper trading keys |
+| `ALPACA_BASE_URL` | Default: `https://paper-api.alpaca.markets` |
+| `ALPACA_STREAM_NEWS_URL` | News WebSocket (default: sandbox stream) |
+| `LUNARCRUSH_API_KEY` | LunarCrush social buzz |
+| `NEWSAPI_API_KEY` | NewsAPI.org (additional news source) |
+| `GROQ_API_KEY` | Groq API for Llama 3 scoring |
+| `REDIS_HOST` / `REDIS_PORT` | Redis connection |
+| `FLASK_PORT` | Server port (default `5001`) |
+| `SENTIMENT_THRESHOLD_BULLISH` | Bullish signal threshold (default `0.6`) |
+| `SENTIMENT_THRESHOLD_BEARISH` | Bearish signal threshold (default `-0.6`) |
 
 ---
 
-## Methodology and Development Plan
-
-The project uses an **incremental, iterative approach**:
-
-1. Core connectivity and trading logic first
-2. AI refinement (FinBERT, Llama 3)
-3. Dashboard development
-4. Latency testing and optimization
-
-Progress is tracked via GitHub commits and documentation updates. See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for the detailed 14-week timeline.
-
----
-
-## Testing and Validation
-
-- **Unit Testing** – Sentiment scoring functions, API order handlers
-- **Integration Testing** – Sub-second interaction between news stream and trading engine
-- **Backtesting / User Testing** – Historical data to verify trade accuracy and dashboard responsiveness
+## Testing
 
 ```bash
 pytest
-pytest --cov=. --cov-report=html
 pytest tests/test_phase1.py
+pytest --cov=. --cov-report=html
 ```
 
 ---
 
-## Expected Deliverables
+## Project Structure
 
-- Fully functional automated trading engine and dashboard
-- Complete GitHub repository with source code and documentation
-- Final written report (design, AI logic, performance results)
-- Live demonstration of the bot trading in a real-time paper environment
-
----
-
-## Use of AI Tools and External Resources
-
-AI tools are used primarily for debugging and documentation assistance. All AI-generated output is reviewed and modified before submission. Open-source libraries (e.g. Lumibot, Alpaca) are cited in the report and repository.
+```
+Stock-Tracker-by-Sakxam/
+├── api/routes/
+│   ├── dashboard.py        # /api/* — sentiment, circuit breaker, log-trade, LunarCrush
+│   └── trading.py          # /api/alpaca/* — Alpaca paper trading + backtest
+├── config/settings.py      # All env-based config
+├── db/
+│   ├── redis_state.py      # Live state (circuit breaker, sentiment, buzz)
+│   └── sqlite_repository.py # Trade log, sentiment metadata, alerts
+├── services/
+│   ├── data_ingestion/     # Alpaca, NewsAPI, StockTwits, Yahoo RSS, Finviz, LunarCrush
+│   ├── intelligence/       # SentimentEngine (FinBERT + Llama 3), TradeSignalService
+│   ├── pipeline.py         # Orchestrates: NewsItem → score → signal → persist
+│   └── backtesting/        # Backtester class (OHLCV momentum simulation)
+├── static/dashboard.html   # Full SPA dashboard (HTML/CSS/JS)
+├── main.py                 # Flask entry point
+├── requirements.txt
+├── .env.example
+└── IMPLEMENTATION_PLAN.md
+```
 
 ---
 
 ## Disclaimers
 
-- **High risk:** Automated and sentiment-based trading can lead to significant losses
-- **Paper first:** Use paper trading and backtesting before any live capital
-- **No guarantee:** Past or simulated performance does not guarantee future results
-- **Compliance:** Ensure compliance with your jurisdiction and broker terms
+- **Paper only by default** — no real money. Set `ENABLE_LIVE_TRADING=true` only after thorough review.
+- Past or simulated performance does not guarantee future results.
+- Ensure compliance with your jurisdiction and broker terms.
 
 ---
 
 ## Repository
 
-- **GitHub:** [SakxamShrestha/sentiment-driven-options-trading-system](https://github.com/SakxamShrestha/sentiment-driven-options-trading-system/)
+**GitHub:** [SakxamShrestha/sentiment-driven-options-trading-system](https://github.com/SakxamShrestha/sentiment-driven-options-trading-system/)

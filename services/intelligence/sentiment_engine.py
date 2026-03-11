@@ -57,9 +57,47 @@ class SentimentEngine:
             return None
 
     def score_llama(self, text: str) -> Optional[Dict[str, Any]]:
-        """Optional: Llama 3 via API (e.g. Groq). Returns { 'score': float } or None."""
-        # Placeholder: integrate with Groq Llama 3 or local Llama when implemented
-        logger.debug("Llama 3 scoring not yet implemented")
+        """
+        Score text using Llama 3 via Groq API.
+        Requires GROQ_API_KEY in environment. Returns { 'score': float, 'label': str } or None.
+        """
+        from config.settings import settings
+        api_key = settings.GROQ_API_KEY
+        if not api_key:
+            logger.debug("GROQ_API_KEY not set; Llama 3 scoring unavailable")
+            return None
+        try:
+            import requests as req
+            prompt = (
+                "You are a financial sentiment analyst. Rate the sentiment of the following "
+                "financial news text on a scale from -1.0 (very bearish) to +1.0 (very bullish). "
+                "Reply with ONLY a JSON object like: {\"score\": 0.72, \"label\": \"bullish\"}. "
+                "No explanation, no markdown.\n\nText: " + text[:1500]
+            )
+            r = req.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": "llama3-8b-8192",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 64,
+                },
+                timeout=15,
+            )
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"].strip()
+            # Parse the JSON reply
+            import json, re
+            match = re.search(r'\{.*?\}', content, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                score = float(parsed.get("score", 0.0))
+                score = max(-1.0, min(1.0, score))
+                label = parsed.get("label", "neutral")
+                return {"score": score, "label": label, "model": "llama3"}
+        except Exception as e:
+            logger.debug("Llama 3 score error: %s", e)
         return None
 
     def score(self, text: str) -> Dict[str, Any]:

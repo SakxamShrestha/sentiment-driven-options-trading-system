@@ -1,5 +1,5 @@
 """
-Dashboard API routes: trades, sentiment, alerts, live state.
+Dashboard API routes: trades, sentiment, alerts, live state, circuit breaker.
 """
 
 from typing import Optional
@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 
 from db import RedisState, SQLiteRepository
 from services.data_ingestion import fetch_all_sources
+from services.data_ingestion.lunarcrush_service import LunarCrushService
 from services.intelligence.sentiment_engine import SentimentEngine
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api")
@@ -149,3 +150,102 @@ def circuit_breaker_status():
     """Whether risk circuit breaker is active."""
     tripped = get_redis().circuit_breaker_tripped()
     return jsonify({"tripped": tripped})
+
+
+@dashboard_bp.route("/circuit-breaker", methods=["GET"])
+def get_circuit_breaker():
+    """Get current circuit breaker state."""
+    tripped = get_redis().circuit_breaker_tripped()
+    return jsonify({"tripped": tripped})
+
+
+@dashboard_bp.route("/circuit-breaker", methods=["POST"])
+def set_circuit_breaker():
+    """Set or clear the risk circuit breaker. Body: { tripped: bool }"""
+    body = request.get_json(silent=True) or {}
+    tripped = bool(body.get("tripped", False))
+    get_redis().set_circuit_breaker(tripped)
+    return jsonify({"tripped": tripped, "ok": True})
+
+
+@dashboard_bp.route("/log-trade", methods=["POST"])
+def log_trade():
+    """
+    Log a manually placed trade to the SQLite trade_log.
+    Body: { symbol, side, qty, order_id, price, sentiment_score? }
+    """
+    body = request.get_json(silent=True) or {}
+    symbol = (body.get("symbol") or "").strip().upper()
+    side = (body.get("side") or "").strip().lower()
+    if not symbol or side not in ("buy", "sell"):
+        return jsonify({"error": "symbol and side (buy|sell) are required"}), 400
+    try:
+        qty = float(body.get("qty", 1))
+        price = float(body["price"]) if body.get("price") else None
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid qty or price"}), 400
+
+    row_id = get_repo().insert_trade(
+        ticker=symbol,
+        side=side,
+        qty=qty,
+        price=price,
+        order_id=body.get("order_id"),
+        sentiment_score=body.get("sentiment_score"),
+        signal_source="manual_dashboard",
+    )
+    return jsonify({"ok": True, "row_id": row_id}), 201
+
+
+@dashboard_bp.route("/lunarcrush/<symbol>", methods=["GET"])
+def lunarcrush_buzz(symbol: str):
+    """Return LunarCrush social buzz metrics for a symbol."""
+    symbol = symbol.upper()
+    svc = LunarCrushService()
+    buzz = svc.get_social_buzz(symbol)
+    if not buzz:
+        return jsonify({"symbol": symbol, "available": False, "metrics": {}})
+    return jsonify({"symbol": symbol, "available": True, **buzz})
+
+
+@dashboard_bp.route("/sentiment/by_ticker_llama", methods=["GET"])
+def sentiment_by_ticker_llama():
+    """
+    On-demand sentiment using Llama 3 (Groq) for a ticker.
+    Same as /sentiment/by_ticker but uses use_llama=True engine.
+    """
+    ticker = (request.args.get("ticker") or request.args.get("symbol") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker parameter is required"}), 400
+    try:
+        limit = min(int(request.args.get("limit", 6)), 20)
+    except ValueError:
+        limit = 6
+
+    news_items = fetch_all_sources(ticker, limit_per_source=max(2, limit // 3))
+    if not news_items:
+        return jsonify({"ticker": ticker, "count": 0, "average_score": None, "articles": [], "model": "llama3"})
+
+    engine = SentimentEngine(use_finbert=False, use_llama=True)
+    articles = []
+    scores = []
+    for item in news_items:
+        text = " ".join(p for p in [(item.headline or "").strip(), (item.summary or "").strip()] if p)
+        if not text:
+            continue
+        sentiment = engine.score(text)
+        score = float(sentiment.get("score", 0.0))
+        scores.append(score)
+        articles.append({
+            "article_id": item.article_id,
+            "headline": item.headline,
+            "url": item.url,
+            "source": item.source,
+            "score": score,
+            "model_used": sentiment.get("model_used"),
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+        })
+
+    average_score = sum(scores) / len(scores) if scores else None
+    return jsonify({"ticker": ticker, "count": len(articles), "average_score": average_score,
+                    "articles": articles, "model": "llama3"})
