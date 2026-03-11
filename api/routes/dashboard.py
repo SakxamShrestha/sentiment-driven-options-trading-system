@@ -74,6 +74,17 @@ def sentiment_by_ticker():
 
     limit_per_source = max(2, limit // 3)
     news_items = fetch_all_sources(ticker, limit_per_source=limit_per_source)
+
+    # Filter: keep only articles where the ticker appears in headline, summary,
+    # or symbols list. This removes off-topic results from generic news sources.
+    def _is_relevant(item) -> bool:
+        if ticker in [s.upper() for s in (item.symbols or [])]:
+            return True
+        combined = ((item.headline or "") + " " + (item.summary or "")).upper()
+        return ticker in combined
+
+    news_items = [item for item in news_items if _is_relevant(item)]
+
     if not news_items:
         return jsonify(
             {
@@ -223,6 +234,14 @@ def sentiment_by_ticker_llama():
         limit = 6
 
     news_items = fetch_all_sources(ticker, limit_per_source=max(2, limit // 3))
+
+    def _relevant(item) -> bool:
+        if ticker in [s.upper() for s in (item.symbols or [])]:
+            return True
+        return ticker in ((item.headline or "") + " " + (item.summary or "")).upper()
+
+    news_items = [item for item in news_items if _relevant(item)]
+
     if not news_items:
         return jsonify({"ticker": ticker, "count": 0, "average_score": None, "articles": [], "model": "llama3"})
 
