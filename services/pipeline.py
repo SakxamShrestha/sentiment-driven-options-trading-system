@@ -27,11 +27,13 @@ class NewsPipeline:
         trade_signal_service: Optional[TradeSignalService] = None,
         repo: Optional[SQLiteRepository] = None,
         redis: Optional[RedisState] = None,
+        socketio=None,
     ):
         self.sentiment_engine = sentiment_engine or SentimentEngine(use_finbert=True, use_llama=False)
         self.trade_signal_service = trade_signal_service or TradeSignalService()
         self.repo = repo or SQLiteRepository()
         self.redis = redis or RedisState()
+        self.socketio = socketio
 
     @staticmethod
     def _text_for_sentiment(news_item: NewsItem) -> str:
@@ -95,6 +97,19 @@ class NewsPipeline:
             self.redis.set_latest_sentiment(latest_payload)
         except Exception as e:
             logger.warning("Failed to set latest sentiment in Redis: %s", e)
+
+        # Emit real-time events via SocketIO if available
+        if self.socketio:
+            try:
+                self.socketio.emit("sentiment_update", {
+                    "score": score,
+                    "model_used": model_used,
+                    "signal_side": signal.get("side"),
+                    "headline": (news_item.headline or "")[:200],
+                    "symbols": news_item.symbols,
+                })
+            except Exception as e:
+                logger.debug("SocketIO emit error: %s", e)
 
         logger.info(
             "Pipeline processed news %s: score=%.3f signal=%s",

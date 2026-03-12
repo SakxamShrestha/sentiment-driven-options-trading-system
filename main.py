@@ -3,6 +3,7 @@ TradeSent.AI - Main entry point.
 Real-time sentiment-driven analysis for automated (paper) trading.
 """
 
+import os
 from flask import Flask, send_from_directory
 from flask_socketio import SocketIO
 
@@ -32,7 +33,29 @@ socketio = SocketIO(
 
 @app.route("/")
 def index():
-    """Serve the web dashboard."""
+    """Serve the React SPA (built) or fall back to legacy dashboard."""
+    dist = os.path.join(app.static_folder, "dist", "index.html")
+    if os.path.exists(dist):
+        return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
+    return send_from_directory(app.static_folder, "dashboard.html")
+
+
+@app.route("/assets/<path:filename>")
+def assets(filename):
+    """Serve Vite-built assets."""
+    return send_from_directory(os.path.join(app.static_folder, "dist", "assets"), filename)
+
+
+# Catch-all for React Router client-side routes
+@app.route("/<path:path>")
+def catch_all(path):
+    """Serve index.html for client-side routing (React Router)."""
+    if path.startswith("api/") or path.startswith("static/") or path.startswith("socket.io"):
+        from flask import abort
+        abort(404)
+    dist = os.path.join(app.static_folder, "dist", "index.html")
+    if os.path.exists(dist):
+        return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
     return send_from_directory(app.static_folder, "dashboard.html")
 
 
@@ -68,7 +91,7 @@ if __name__ == "__main__":
     logger.info(f'Live Trading: {settings.ENABLE_LIVE_TRADING}')
 
     # Setting up the news ingestion pipeline (Alpaca → sentiment → signal → persistence)
-    pipeline = NewsPipeline()
+    pipeline = NewsPipeline(socketio=socketio)
 
     news_stream = AlpacaNewsStreamService(on_news=pipeline.process)
     started = news_stream.start()
