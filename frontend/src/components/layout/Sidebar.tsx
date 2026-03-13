@@ -105,7 +105,7 @@ export function Navbar() {
         </svg>
         <input
           className="w-full h-10 pl-12 pr-3 border border-border rounded-full bg-bg text-sm outline-none focus:border-accent transition-colors"
-          placeholder="Search"
+          placeholder=""
           value={query}
           onChange={(e) => onSearchInput(e.target.value)}
           onKeyDown={(e) => {

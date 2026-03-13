@@ -196,7 +196,8 @@ def log_trade():
     except (ValueError, TypeError):
         return jsonify({"error": "invalid qty or price"}), 400
 
-    row_id = get_repo().insert_trade(
+    repo = get_repo()
+    row_id = repo.insert_trade(
         ticker=symbol,
         side=side,
         qty=qty,
@@ -205,6 +206,31 @@ def log_trade():
         sentiment_score=body.get("sentiment_score"),
         signal_source="manual_dashboard",
     )
+
+    price_str = f" at ${price:.2f}" if price else ""
+    verb = "Bought" if side == "buy" else "Sold"
+    message = f"{verb} {qty:.4g} shares of {symbol}{price_str}"
+    notif_id = repo.insert_notification(
+        notif_type=side,
+        message=message,
+        symbol=symbol,
+        side=side,
+        qty=qty,
+        price=price,
+    )
+
+    try:
+        from flask import current_app
+        sio = current_app.extensions.get("socketio")
+        if sio:
+            sio.emit("notification", {
+                "id": notif_id, "type": side, "symbol": symbol,
+                "side": side, "qty": qty, "price": price,
+                "message": message, "read": 0,
+            })
+    except Exception:
+        pass
+
     return jsonify({"ok": True, "row_id": row_id}), 201
 
 
@@ -268,3 +294,24 @@ def sentiment_by_ticker_llama():
     average_score = sum(scores) / len(scores) if scores else None
     return jsonify({"ticker": ticker, "count": len(articles), "average_score": average_score,
                     "articles": articles, "model": "llama3"})
+
+
+# ── Notifications ──────────────────────────────────────────────
+
+@dashboard_bp.route("/notifications", methods=["GET"])
+def get_notifications():
+    """Return recent notifications with unread count."""
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    repo = get_repo()
+    return jsonify({
+        "notifications": repo.get_notifications(limit=limit, offset=offset),
+        "unread_count": repo.get_unread_count(),
+    })
+
+
+@dashboard_bp.route("/notifications/read", methods=["POST"])
+def mark_notifications_read():
+    """Mark all notifications as read."""
+    count = get_repo().mark_notifications_read()
+    return jsonify({"ok": True, "marked": count})

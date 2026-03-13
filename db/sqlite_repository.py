@@ -69,9 +69,21 @@ class SQLiteRepository:
                     created_at TEXT NOT NULL,
                     raw_payload TEXT
                 );
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL,
+                    symbol TEXT,
+                    side TEXT,
+                    qty REAL,
+                    price REAL,
+                    message TEXT NOT NULL,
+                    read INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_trade_created ON trade_log(created_at);
                 CREATE INDEX IF NOT EXISTS idx_sentiment_created ON sentiment_metadata(created_at);
                 CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at);
+                CREATE INDEX IF NOT EXISTS idx_notif_created ON notifications(created_at);
             """)
         logger.info("SQLite schema initialized at %s", self.db_path)
 
@@ -179,3 +191,44 @@ class SQLiteRepository:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def insert_notification(
+        self,
+        notif_type: str,
+        message: str,
+        symbol: Optional[str] = None,
+        side: Optional[str] = None,
+        qty: Optional[float] = None,
+        price: Optional[float] = None,
+    ) -> int:
+        """Insert a notification. Returns row id."""
+        from datetime import datetime
+        with self._connection() as conn:
+            cur = conn.execute(
+                """INSERT INTO notifications
+                   (type, symbol, side, qty, price, message, read, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, 0, ?)""",
+                (notif_type, symbol, side, qty, price, message, datetime.utcnow().isoformat()),
+            )
+            return cur.lastrowid
+
+    def get_notifications(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Fetch notifications ordered by most recent."""
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM notifications ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_unread_count(self) -> int:
+        """Count unread notifications."""
+        with self._connection() as conn:
+            row = conn.execute("SELECT COUNT(*) as cnt FROM notifications WHERE read = 0").fetchone()
+            return row["cnt"] if row else 0
+
+    def mark_notifications_read(self) -> int:
+        """Mark all notifications as read. Returns rows affected."""
+        with self._connection() as conn:
+            cur = conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+            return cur.rowcount

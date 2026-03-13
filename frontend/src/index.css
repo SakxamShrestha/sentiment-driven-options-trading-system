@@ -18,6 +18,18 @@
   --color-active-border: #f59e0b;
 }
 
+:root.dark {
+  --color-bg: #0d0d0d;
+  --color-card: #1a1a1a;
+  --color-border: #2a2a2a;
+  --color-text: #e5e5e5;
+  --color-muted: #8b8b8b;
+  --color-hover: #252525;
+  --color-gain-soft: rgba(22,163,74,0.15);
+  --color-loss-soft: rgba(220,38,38,0.15);
+  --color-active-bg: rgba(245,158,11,0.12);
+}
+
 @keyframes flash-green {
   0% { background-color: var(--color-gain-soft); }
   100% { background-color: transparent; }
@@ -33,6 +45,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 14px;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }
