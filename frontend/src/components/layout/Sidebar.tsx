@@ -1,134 +1,217 @@
-import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { useAccountStore } from '../../stores/useAccountStore';
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Spinner } from '../shared/Spinner';
+import { NotificationDropdown } from '../shared/NotificationDropdown';
+import { api } from '../../services/api';
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium border-l-3 transition-colors ${
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  `px-4 py-2 text-[13px] font-medium rounded-lg transition-colors whitespace-nowrap ${
     isActive
-      ? 'bg-active-bg border-active-border text-text'
-      : 'border-transparent text-muted hover:bg-hover hover:text-text'
+      ? 'bg-active-bg text-text'
+      : 'text-muted hover:bg-hover hover:text-text'
   }`;
 
-export function Sidebar() {
+export function Navbar() {
   const [accountOpen, setAccountOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const acctNumber = useAccountStore((s) => s.account?.account_number);
+  const navigate = useNavigate();
 
   const isAccountRoute = ['/positions', '/orders', '/activities', '/balances'].some((p) =>
     location.pathname.startsWith(p)
   );
 
+  // Search
+  const [query, setQuery] = useState('');
+  const [searchResult, setSearchResult] = useState<{ symbol: string; price: number | null; change_pct: number | null } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const doSearch = async (val: string) => {
+    setSearchLoading(true);
+    try {
+      const d = await api.getSnapshot(val);
+      if (d.price) {
+        setSearchResult({ symbol: d.symbol, price: d.price, change_pct: d.change_pct });
+        setSearchOpen(true);
+      } else {
+        setSearchResult(null);
+        setSearchOpen(true);
+      }
+    } catch {
+      setSearchResult(null);
+      setSearchOpen(true);
+    }
+    setSearchLoading(false);
+  };
+
+  const onSearchInput = (val: string) => {
+    setQuery(val);
+    clearTimeout(searchTimer.current);
+    const upper = val.trim().toUpperCase();
+    if (upper.length < 2) { setSearchOpen(false); return; }
+    setSearchLoading(true);
+    setSearchOpen(true);
+    searchTimer.current = setTimeout(() => doSearch(upper), 400);
+  };
+
+  const openStock = (sym: string) => {
+    setSearchOpen(false);
+    setQuery('');
+    navigate(`/stock/${sym}`);
+  };
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setAccountOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   return (
-    <aside className="w-[200px] bg-card border-r border-border flex flex-col shrink-0 h-screen overflow-y-auto">
-      <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-border">
-        <img
-          src="/static/images/FInal_Logo.png"
-          alt="TradeSent.AI"
-          className="w-8 h-8 rounded-lg object-contain shrink-0"
-        />
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold truncate">Paper Trading</div>
-          <div className="text-[10px] text-muted truncate mt-px">{acctNumber ?? 'Loading…'}</div>
-        </div>
-      </div>
-
-      <nav className="py-2.5 flex-1">
-        <NavLink to="/" className={navLinkClass} end>
-          <HomeIcon /> Home
-        </NavLink>
-
-        <button
-          onClick={() => setAccountOpen(!accountOpen)}
-          className={`flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium border-l-3 w-full transition-colors ${
-            isAccountRoute
-              ? 'bg-active-bg border-active-border text-text'
-              : 'border-transparent text-muted hover:bg-hover hover:text-text'
-          }`}
+    <header className="h-[56px] bg-card border-b border-border flex items-center px-6 shrink-0">
+      {/* Logo */}
+      <Link to="/" className="flex items-center mr-6 shrink-0">
+        <motion.svg
+          whileHover={{ scale: 1.12, rotate: 8 }}
+          whileTap={{ scale: 0.92 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+          className="w-7 h-7 text-accent"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <UserIcon /> Account
-          <svg
-            className={`ml-auto w-3 h-3 transition-transform ${accountOpen ? 'rotate-90' : ''}`}
-            fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </button>
-        {accountOpen && (
-          <div>
-            {[
-              { to: '/positions', label: 'Positions' },
-              { to: '/orders', label: 'Orders' },
-              { to: '/activities', label: 'Activities' },
-              { to: '/balances', label: 'Balances' },
-            ].map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 pl-9 pr-4 py-1.5 text-xs font-medium border-l-3 transition-colors ${
-                    isActive
-                      ? 'text-text border-active-border bg-active-bg'
-                      : 'border-transparent text-muted hover:bg-hover hover:text-text'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+          <path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" />
+          <path d="M15 6h1v4" />
+          <path d="m6.134 14.768.866-.5 2 3.464" />
+          <circle cx="16" cy="8" r="6" />
+        </motion.svg>
+      </Link>
+
+      {/* Search */}
+      <div ref={searchRef} className="flex-1 max-w-[540px] relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none w-4 h-4"
+          fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+        </svg>
+        <input
+          className="w-full h-10 pl-12 pr-3 border border-border rounded-full bg-bg text-sm outline-none focus:border-accent transition-colors"
+          placeholder="Search"
+          value={query}
+          onChange={(e) => onSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = query.trim().toUpperCase();
+              if (val) openStock(val);
+            }
+            if (e.key === 'Escape') setSearchOpen(false);
+          }}
+        />
+        {searchOpen && (
+          <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-card border border-border rounded-xl shadow-lg z-[200] overflow-hidden">
+            {searchLoading ? (
+              <div className="flex items-center gap-2 px-4 py-3 text-muted text-sm">
+                <Spinner /> Looking up {query.toUpperCase()}…
+              </div>
+            ) : searchResult ? (
+              <>
+                <div
+                  className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-hover transition-colors"
+                  onClick={() => openStock(searchResult.symbol)}
+                >
+                  <div>
+                    <span className="font-bold text-sm mr-2.5">{searchResult.symbol}</span>
+                    {searchResult.change_pct !== null && (
+                      <span className={`text-xs ${searchResult.change_pct >= 0 ? 'text-gain' : 'text-loss'}`}>
+                        {searchResult.change_pct >= 0 ? '+' : ''}{searchResult.change_pct.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-semibold text-sm">
+                    {searchResult.price ? `$${searchResult.price.toFixed(2)}` : '–'}
+                  </span>
+                </div>
+                <div className="px-4 py-2 border-t border-border">
+                  <span className="text-xs text-muted cursor-pointer hover:text-accent transition-colors"
+                    onClick={() => openStock(searchResult.symbol)}>
+                    Press Enter or click to open ↗
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="px-4 py-3 text-sm text-muted">
+                No data found for "{query.toUpperCase()}"
+              </div>
+            )}
           </div>
         )}
-
-        <NavLink to="/sentiment" className={navLinkClass}>
-          <SentimentIcon /> Sentiment
-        </NavLink>
-        <NavLink to="/backtest" className={navLinkClass}>
-          <BacktestIcon /> Backtest
-        </NavLink>
-        <NavLink to="/learn" className={navLinkClass}>
-          <LearnIcon /> Learn
-        </NavLink>
-      </nav>
-
-      <div className="px-4 py-3.5 border-t border-border text-[11px] text-muted">
-        TradeSent.AI v2.0
       </div>
-    </aside>
-  );
-}
 
-function HomeIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path d="M3 12L12 3l9 9" /><path d="M9 21V12h6v9" />
-    </svg>
-  );
-}
-function UserIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-    </svg>
-  );
-}
-function SentimentIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" />
-      <line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" />
-    </svg>
-  );
-}
-function BacktestIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </svg>
-  );
-}
-function LearnIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-    </svg>
+      {/* Spacer */}
+      <div className="flex-1 min-w-[40px]" />
+
+      {/* Nav Links (right side) */}
+      <nav className="flex items-center gap-1 ml-4">
+        <NavLink to="/" className={navClass} end>Home</NavLink>
+
+        {/* Account dropdown */}
+        <div ref={dropdownRef} className="relative">
+          <button
+            onClick={() => setAccountOpen(!accountOpen)}
+            className={`flex items-center gap-1 px-4 py-2 text-[13px] font-medium rounded-lg transition-colors whitespace-nowrap ${
+              isAccountRoute || accountOpen
+                ? 'bg-active-bg text-text'
+                : 'text-muted hover:bg-hover hover:text-text'
+            }`}
+          >
+            Account
+            <svg
+              className={`w-3 h-3 transition-transform ${accountOpen ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {accountOpen && (
+            <div className="absolute top-[calc(100%+4px)] right-0 bg-card border border-border rounded-xl shadow-lg z-[300] min-w-[150px] py-1 overflow-hidden">
+              {[
+                { to: '/positions', label: 'Positions' },
+                { to: '/orders', label: 'Orders' },
+                { to: '/activities', label: 'Activities' },
+                { to: '/balances', label: 'Balances' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setAccountOpen(false)}
+                  className={({ isActive }) =>
+                    `block px-4 py-2 text-[13px] font-medium transition-colors ${
+                      isActive ? 'text-text bg-active-bg' : 'text-muted hover:bg-hover hover:text-text'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <NavLink to="/sentiment" className={navClass}>Sentiment</NavLink>
+        <NavLink to="/backtest" className={navClass}>Backtest</NavLink>
+        <NavLink to="/learn" className={navClass}>Learn</NavLink>
+        <NotificationDropdown />
+        <NavLink to="/profile" className={navClass}>Profile</NavLink>
+      </nav>
+    </header>
   );
 }

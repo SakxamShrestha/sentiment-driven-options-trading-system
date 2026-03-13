@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { price$ } from '../stores/usePriceStore';
 import { sentiment$ } from '../stores/useSentimentStore';
+import { useNotificationStore } from '../stores/useNotificationStore';
 
 export function useWebSocket() {
   const socket = useRef<Socket | null>(null);
@@ -35,6 +36,20 @@ export function useWebSocket() {
         signal_side: data.signal_side,
         model_used: data.model_used,
         headline: data.headline,
+      });
+    });
+
+    s.on('notification', (data) => {
+      useNotificationStore.getState().pushNotification({
+        id: data.id,
+        type: data.type,
+        symbol: data.symbol,
+        side: data.side,
+        qty: data.qty,
+        price: data.price,
+        message: data.message,
+        read: 0,
+        created_at: new Date().toISOString(),
       });
     });
 

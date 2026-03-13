@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-virtual": "^3.13.21",
+    "firebase": "^12.10.0",
     "framer-motion": "^12.35.2",
     "lightweight-charts": "^5.1.0",
     "react": "^19.2.0",

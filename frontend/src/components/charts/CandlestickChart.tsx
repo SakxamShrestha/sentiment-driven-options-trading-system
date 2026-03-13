@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, type IChartApi, type ISeriesApi, CrosshairMode } from 'lightweight-charts';
+import { createChart, type IChartApi, CandlestickSeries, CrosshairMode } from 'lightweight-charts';
 import { api } from '../../services/api';
 import type { Timeframe } from '../../lib/constants';
 
@@ -12,7 +12,7 @@ interface Props {
 export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const seriesRef = useRef<any>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
       timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: timeframe === '1Min' },
     });
 
-    const series = chart.addCandlestickSeries({
+    const series = chart.addSeries(CandlestickSeries, {
       upColor: '#16a34a', downColor: '#dc2626',
       borderUpColor: '#16a34a', borderDownColor: '#dc2626',
       wickUpColor: '#16a34a', wickDownColor: '#dc2626',

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, type IChartApi, CrosshairMode } from 'lightweight-charts';
+import { createChart, type IChartApi, AreaSeries, CrosshairMode } from 'lightweight-charts';
 import { api } from '../../services/api';
 import type { PortfolioPeriod } from '../../lib/constants';
 import { Spinner } from '../shared/Spinner';
@@ -48,7 +48,7 @@ export function PortfolioAreaChart({ period, height = 160 }: Props) {
 
         chartRef.current = chart;
 
-        const series = chart.addAreaSeries({
+        const series = chart.addSeries(AreaSeries, {
           lineColor,
           topColor,
           bottomColor: 'rgba(255,255,255,0)',

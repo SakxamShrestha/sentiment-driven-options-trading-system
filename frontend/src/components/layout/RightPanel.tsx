@@ -26,7 +26,7 @@ export function RightPanel() {
             <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
           </svg>
           <input
-            className="w-full h-[34px] pl-7 pr-2.5 border border-border rounded-lg bg-bg text-xs outline-none focus:border-accent"
+            className="w-full h-[34px] pl-8 pr-2.5 border border-border rounded-lg bg-bg text-xs outline-none focus:border-accent"
             placeholder="Search by symbol…"
             onKeyDown={onKeyDown}
           />
