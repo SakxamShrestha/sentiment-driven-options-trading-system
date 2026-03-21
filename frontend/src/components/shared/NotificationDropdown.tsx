@@ -54,16 +54,20 @@ export function NotificationDropdown() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
-        className={`flex items-center gap-1 px-4 py-2 text-[13px] font-medium rounded-lg transition-colors whitespace-nowrap ${
-          open ? 'bg-active-bg text-text' : 'text-muted hover:bg-hover hover:text-text'
+        aria-label="Notifications"
+        className={`relative p-2 rounded-lg transition-all duration-200 ${
+          open ? 'bg-active-bg text-accent' : 'text-muted hover:bg-hover hover:text-text'
         }`}
       >
-        Notifications
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 01-3.46 0" />
+        </svg>
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="w-4.5 h-4.5 bg-loss text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none ml-0.5"
+            className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none px-0.5"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
@@ -95,7 +99,7 @@ export function NotificationDropdown() {
                 {notifications.slice(0, 4).map((n: Notification) => (
                   <div
                     key={n.id}
-                    className={`flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-hover transition-colors cursor-pointer ${n.read === 0 ? 'bg-blue-50/40' : ''}`}
+                    className={`flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-hover transition-colors cursor-pointer ${n.read === 0 ? 'bg-info-bg' : ''}`}
                     onClick={() => {
                       setOpen(false);
                       if (n.symbol) navigate(`/stock/${n.symbol}`);
@@ -125,7 +129,7 @@ export function NotificationDropdown() {
               className="px-4 py-2.5 border-t border-border text-center cursor-pointer hover:bg-hover transition-colors"
               onClick={() => { setOpen(false); navigate('/notifications'); }}
             >
-              <span className="text-xs font-semibold text-accent">View All Notifications</span>
+              <span className="text-xs font-bold text-accent">View All Notifications</span>
             </div>
           </motion.div>
         )}

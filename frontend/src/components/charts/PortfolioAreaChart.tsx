@@ -3,22 +3,41 @@ import { createChart, type IChartApi, AreaSeries, CrosshairMode } from 'lightwei
 import { api } from '../../services/api';
 import type { PortfolioPeriod } from '../../lib/constants';
 import { Spinner } from '../shared/Spinner';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 interface Props {
   period: PortfolioPeriod;
   height?: number;
 }
 
+const chartTheme = {
+  dark: {
+    background: '#131b2e',
+    text: '#5a6680',
+    grid: '#1a2440',
+    border: '#1e2848',
+    bottomColor: 'rgba(0,0,0,0)',
+  },
+  light: {
+    background: '#ffffff',
+    text: '#5e6a99',
+    grid: '#ebeeff',
+    border: '#dde2f4',
+    bottomColor: 'rgba(244,246,255,0)',
+  },
+};
+
 export function PortfolioAreaChart({ period, height = 160 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const statusRef = useRef<string>('loading');
+  const theme = useThemeStore((s) => s.theme);
 
   useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = '';
 
     let chart: IChartApi;
+    const colors = chartTheme[theme];
 
     (async () => {
       try {
@@ -31,17 +50,21 @@ export function PortfolioAreaChart({ period, height = 160 }: Props) {
         const first = d.points[0].v;
         const last = d.points[d.points.length - 1].v;
         const isUp = last >= first;
-        const lineColor = isUp ? '#16a34a' : '#dc2626';
-        const topColor = isUp ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)';
+        const lineColor = isUp
+          ? (theme === 'dark' ? '#4ade80' : '#16a34a')
+          : (theme === 'dark' ? '#f87171' : '#dc2626');
+        const topColor = isUp
+          ? (theme === 'dark' ? 'rgba(74,222,128,0.18)' : 'rgba(22,163,74,0.14)')
+          : (theme === 'dark' ? 'rgba(248,113,113,0.18)' : 'rgba(220,38,38,0.14)');
 
         chart = createChart(containerRef.current!, {
           width: containerRef.current!.clientWidth,
           height,
-          layout: { background: { color: '#ffffff' }, textColor: '#6b7280' },
-          grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+          layout: { background: { color: colors.background }, textColor: colors.text },
+          grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
           crosshair: { mode: CrosshairMode.Magnet },
-          rightPriceScale: { borderColor: '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
-          timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false },
+          rightPriceScale: { borderColor: colors.border, scaleMargins: { top: 0.1, bottom: 0.1 } },
+          timeScale: { borderColor: colors.border, timeVisible: true, secondsVisible: false },
           handleScroll: false,
           handleScale: false,
         });
@@ -51,7 +74,7 @@ export function PortfolioAreaChart({ period, height = 160 }: Props) {
         const series = chart.addSeries(AreaSeries, {
           lineColor,
           topColor,
-          bottomColor: 'rgba(255,255,255,0)',
+          bottomColor: colors.bottomColor,
           lineWidth: 2,
           priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
         });
@@ -78,7 +101,7 @@ export function PortfolioAreaChart({ period, height = 160 }: Props) {
         chartRef.current = null;
       }
     };
-  }, [period, height]);
+  }, [period, height, theme]);
 
   return (
     <div ref={containerRef} style={{ height }} className="w-full rounded-lg overflow-hidden relative">

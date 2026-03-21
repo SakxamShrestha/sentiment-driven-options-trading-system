@@ -19,16 +19,16 @@ export default function Balances() {
     api.getAccount().then(setAccount).catch(() => {});
   }, []);
 
-  if (!account) return <div className="flex justify-center py-20"><Spinner className="w-6 h-6" /></div>;
+  if (!account) return <div className="flex justify-center py-20"><Spinner className="w-5 h-5" /></div>;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
-      <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-4">Account Balances</div>
-      <div className="grid grid-cols-2 gap-4">
+    <div className="max-w-[960px]">
+      <h1 className="text-lg font-bold mb-5">Balances</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FIELDS.map(([label, key]) => (
-          <div key={key} className="border border-border rounded-xl p-3.5">
-            <div className="text-[11px] text-muted mb-1">{label}</div>
-            <div className="text-[15px] font-bold">{fmt(account[key])}</div>
+          <div key={key} className="card-elevated p-5">
+            <div className="text-xs text-muted mb-1">{label}</div>
+            <div className="text-base font-semibold font-mono">{fmt(account[key])}</div>
           </div>
         ))}
       </div>

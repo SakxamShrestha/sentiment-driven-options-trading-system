@@ -17,7 +17,7 @@ interface Props<T> {
 }
 
 export function VirtualTable<T>({
-  data, columns, rowHeight = 44, maxHeight = 400,
+  data, columns, rowHeight = 48, maxHeight = 400,
   emptyMessage = 'No data', onRowClick,
 }: Props<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -37,7 +37,7 @@ export function VirtualTable<T>({
       <div className="grid text-xs font-semibold text-muted uppercase tracking-wide border-b border-border"
         style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
         {columns.map((c, i) => (
-          <div key={i} className={`px-3 py-2 ${c.className ?? ''}`}>{c.header}</div>
+          <div key={i} className={`px-4 py-3 ${c.className ?? ''}`}>{c.header}</div>
         ))}
       </div>
       <div ref={parentRef} style={{ maxHeight, overflow: 'auto' }}>
@@ -56,7 +56,7 @@ export function VirtualTable<T>({
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((c, ci) => (
-                  <div key={ci} className={`px-3 truncate ${c.className ?? ''}`}>
+                  <div key={ci} className={`px-4 truncate ${c.className ?? ''}`}>
                     {c.accessor(row, vi.index)}
                   </div>
                 ))}

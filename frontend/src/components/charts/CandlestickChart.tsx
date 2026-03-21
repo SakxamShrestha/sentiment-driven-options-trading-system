@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createChart, type IChartApi, CandlestickSeries, CrosshairMode } from 'lightweight-charts';
 import { api } from '../../services/api';
 import type { Timeframe } from '../../lib/constants';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 interface Props {
   symbol: string;
@@ -9,33 +10,52 @@ interface Props {
   height?: number;
 }
 
+const chartTheme = {
+  dark: {
+    background: '#131b2e',
+    text: '#5a6680',
+    grid: '#1a2440',
+    border: '#1e2848',
+    upColor: '#4ade80',
+    downColor: '#f87171',
+  },
+  light: {
+    background: '#ffffff',
+    text: '#5e6a99',
+    grid: '#ebeeff',
+    border: '#dde2f4',
+    upColor: '#16a34a',
+    downColor: '#dc2626',
+  },
+};
+
 export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<any>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
+  const theme = useThemeStore((s) => s.theme);
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const colors = chartTheme[theme];
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height,
-      layout: { background: { color: '#ffffff' }, textColor: '#374151' },
-      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      layout: { background: { color: colors.background }, textColor: colors.text },
+      grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#e5e7eb' },
-      timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: timeframe === '1Min' },
+      rightPriceScale: { borderColor: colors.border },
+      timeScale: { borderColor: colors.border, timeVisible: true, secondsVisible: timeframe === '1Min' },
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#16a34a', downColor: '#dc2626',
-      borderUpColor: '#16a34a', borderDownColor: '#dc2626',
-      wickUpColor: '#16a34a', wickDownColor: '#dc2626',
+      upColor: colors.upColor, downColor: colors.downColor,
+      borderUpColor: colors.upColor, borderDownColor: colors.downColor,
+      wickUpColor: colors.upColor, wickDownColor: colors.downColor,
     });
 
     chartRef.current = chart;
-    seriesRef.current = series;
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
@@ -43,7 +63,7 @@ export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
     ro.observe(containerRef.current);
 
     (async () => {
-      if (statusRef.current) statusRef.current.textContent = 'Loading…';
+      if (statusRef.current) statusRef.current.textContent = 'Loading...';
       try {
         const d = await api.getBars(symbol, timeframe, 200);
         if (!d.bars.length) {
@@ -55,7 +75,7 @@ export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
           .sort((a: any, b: any) => a.time - b.time);
         series.setData(candles);
         chart.timeScale().fitContent();
-        if (statusRef.current) statusRef.current.textContent = `${d.bars.length} bars · ${timeframe}`;
+        if (statusRef.current) statusRef.current.textContent = `${d.bars.length} bars`;
       } catch (e: any) {
         if (statusRef.current) statusRef.current.textContent = 'Chart error: ' + e.message;
       }
@@ -65,13 +85,12 @@ export function CandlestickChart({ symbol, timeframe, height = 300 }: Props) {
       ro.disconnect();
       chart.remove();
       chartRef.current = null;
-      seriesRef.current = null;
     };
-  }, [symbol, timeframe, height]);
+  }, [symbol, timeframe, height, theme]);
 
   return (
     <div>
-      <span ref={statusRef} className="text-[11px] text-muted" />
+      <span ref={statusRef} className="text-[11px] text-muted font-mono" />
       <div ref={containerRef} style={{ height }} />
     </div>
   );

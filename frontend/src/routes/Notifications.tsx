@@ -27,14 +27,14 @@ export default function Notifications() {
 
   return (
     <div className="max-w-[800px]">
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <div className="text-lg font-bold">Notifications</div>
-            <div className="text-xs text-muted mt-0.5">{notifications.length} total notifications</div>
-          </div>
-          <button onClick={load} className="text-xs text-muted hover:text-text transition-colors">↻ Refresh</button>
+      <div className="flex justify-between items-center mb-5">
+        <div>
+          <h1 className="text-lg font-bold">Notifications</h1>
+          <div className="text-xs text-muted mt-0.5">{notifications.length} total</div>
         </div>
+        <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-colors font-mono font-semibold">Refresh</button>
+      </div>
+      <div className="card-elevated p-5">
         <VirtualTable
           data={notifications}
           emptyMessage="No notifications yet. Place a trade to see activity here."

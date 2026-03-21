@@ -34,18 +34,18 @@ export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
     setSubmitting(false);
   };
 
-  const inputClass = 'w-full h-[34px] px-2.5 border border-border rounded-lg bg-bg text-sm outline-none focus:border-accent';
+  const inputClass = 'w-full h-[36px] px-3 border border-border rounded-xl bg-bg/50 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all duration-200';
 
   if (compact) {
     return (
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="card-elevated p-5">
         <div className="flex border-b border-border mb-3">
           <button onClick={() => setSide('buy')}
-            className={`flex-1 py-1.5 text-center text-sm font-semibold border-b-2 transition-colors ${side === 'buy' ? 'text-gain border-gain' : 'text-muted border-transparent'}`}>Buy</button>
+            className={`flex-1 py-1.5 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'buy' ? 'text-gain border-gain' : 'text-muted border-transparent'}`}>Buy</button>
           <button onClick={() => setSide('sell')}
-            className={`flex-1 py-1.5 text-center text-sm font-semibold border-b-2 transition-colors ${side === 'sell' ? 'text-loss border-loss' : 'text-muted border-transparent'}`}>Sell</button>
+            className={`flex-1 py-1.5 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'sell' ? 'text-loss border-loss' : 'text-muted border-transparent'}`}>Sell</button>
         </div>
-        <div className="grid grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-3 gap-4 items-end">
           <div>
             <label className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1 block">Qty</label>
             <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className={inputClass} />
@@ -59,11 +59,11 @@ export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
             <select value={tif} onChange={(e) => setTif(e.target.value)} className={inputClass}><option value="day">DAY</option><option value="gtc">GTC</option></select>
           </div>
         </div>
-        <div className="flex justify-between mt-3 text-xs text-muted"><span>Est. Cost</span><span className="text-text font-semibold">{estCost ? fmt(estCost) : '$–'}</span></div>
-        <div className="flex justify-between text-xs text-muted mb-3"><span>Buying Power</span><span className="text-text font-semibold">{fmt(buyingPower)}</span></div>
+        <div className="flex justify-between mt-4 text-xs text-muted"><span>Est. Cost</span><span className="text-text font-semibold font-mono">{estCost ? fmt(estCost) : '$–'}</span></div>
+        <div className="flex justify-between text-xs text-muted mb-3"><span>Buying Power</span><span className="text-text font-semibold font-mono">{fmt(buyingPower)}</span></div>
         <div className="flex gap-2">
-          <button disabled={submitting} onClick={() => submit('buy')} className="flex-1 h-9 rounded-lg bg-gain text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-opacity">Buy</button>
-          <button disabled={submitting} onClick={() => submit('sell')} className="flex-1 h-9 rounded-lg bg-loss text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-opacity">Sell</button>
+          <button disabled={submitting} onClick={() => submit('buy')} className="flex-1 h-10 rounded-xl bg-gain text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-all duration-200 shadow-md shadow-gain/20 hover:shadow-lg hover:shadow-gain/30">Buy</button>
+          <button disabled={submitting} onClick={() => submit('sell')} className="flex-1 h-10 rounded-xl bg-loss text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-all duration-200 shadow-md shadow-loss/20 hover:shadow-lg hover:shadow-loss/30">Sell</button>
         </div>
       </div>
     );
@@ -73,9 +73,9 @@ export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
     <div className="p-4">
       <div className="flex border-b border-border mb-3">
         <button onClick={() => setSide('buy')}
-          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-colors ${side === 'buy' ? 'text-gain border-gain' : 'text-muted border-transparent'}`}>Buy</button>
+          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'buy' ? 'text-gain border-gain' : 'text-muted border-transparent'}`}>Buy</button>
         <button onClick={() => setSide('sell')}
-          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-colors ${side === 'sell' ? 'text-loss border-loss' : 'text-muted border-transparent'}`}>Sell</button>
+          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'sell' ? 'text-loss border-loss' : 'text-muted border-transparent'}`}>Sell</button>
       </div>
       <div className="mb-3">
         <label className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1 block">Quantity</label>
@@ -89,11 +89,11 @@ export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
         <label className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1 block">Time in Force</label>
         <select value={tif} onChange={(e) => setTif(e.target.value)} className={inputClass}><option value="day">DAY</option><option value="gtc">GTC</option></select>
       </div>
-      <div className="flex justify-between text-xs text-muted mb-1"><span>Estimated Cost</span><span className="text-text font-semibold">{estCost ? fmt(estCost) : '$–'}</span></div>
-      <div className="flex justify-between text-xs text-muted mb-3"><span>Buying Power</span><span className="text-text font-semibold">{fmt(buyingPower)}</span></div>
+      <div className="flex justify-between text-xs text-muted mb-1"><span>Estimated Cost</span><span className="text-text font-semibold font-mono">{estCost ? fmt(estCost) : '$–'}</span></div>
+      <div className="flex justify-between text-xs text-muted mb-3"><span>Buying Power</span><span className="text-text font-semibold font-mono">{fmt(buyingPower)}</span></div>
       <div className="flex gap-2">
-        <button disabled={submitting} onClick={() => submit('buy')} className="flex-1 h-9 rounded-lg bg-gain text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-opacity">Buy</button>
-        <button disabled={submitting} onClick={() => submit('sell')} className="flex-1 h-9 rounded-lg bg-loss text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-opacity">Sell</button>
+        <button disabled={submitting} onClick={() => submit('buy')} className="flex-1 h-10 rounded-xl bg-gain text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-all duration-200 shadow-md shadow-gain/20">Buy</button>
+        <button disabled={submitting} onClick={() => submit('sell')} className="flex-1 h-10 rounded-xl bg-loss text-white text-sm font-bold disabled:opacity-40 hover:opacity-90 transition-all duration-200 shadow-md shadow-loss/20">Sell</button>
       </div>
     </div>
   );

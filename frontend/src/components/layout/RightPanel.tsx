@@ -29,7 +29,7 @@ const MiniSparkline = memo(function MiniSparkline({ points, up }: { points: numb
 
   return (
     <svg width={w} height={h} className="shrink-0">
-      <path d={d} fill="none" stroke={up ? '#16a34a' : '#dc2626'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={up ? 'var(--color-gain)' : 'var(--color-loss)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 });
@@ -38,20 +38,23 @@ function PositionRow({ pos, spark, onClick }: { pos: Position; spark?: SparkData
   const price = parseFloat(pos.current_price || '0');
   const plPct = parseFloat(pos.unrealized_plpc || '0') * 100;
   const up = plPct >= 0;
+  const qty = parseFloat(pos.qty);
 
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer hover:bg-hover transition-colors"
+      className="flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-0 cursor-pointer hover:bg-hover/60 transition-all duration-200 group"
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-bold">{pos.symbol}</div>
-        <div className="text-[11px] text-muted">{parseFloat(pos.qty).toFixed(2)} shares</div>
+        <div className="text-[13px] font-bold group-hover:text-accent transition-colors">{pos.symbol}</div>
+        <div className="text-[11px] text-muted mt-0.5">
+          {qty % 1 === 0 ? qty.toFixed(0) : qty.toFixed(2)} shares
+        </div>
       </div>
       <MiniSparkline points={spark?.points ?? []} up={up} />
-      <div className="text-right shrink-0 min-w-[70px]">
-        <div className="text-[13px] font-semibold">${price.toFixed(2)}</div>
-        <div className={`text-[11px] font-semibold ${up ? 'text-gain' : 'text-loss'}`}>
+      <div className="text-right shrink-0 min-w-[72px]">
+        <div className="text-[13px] font-semibold font-mono">${price.toFixed(2)}</div>
+        <div className={`text-[11px] font-semibold mt-0.5 font-mono ${up ? 'text-gain' : 'text-loss'}`}>
           {plSign(plPct)}{plPct.toFixed(2)}%
         </div>
       </div>
@@ -109,11 +112,7 @@ export function RightPanel() {
   }, [positions, loadSparks]);
 
   return (
-    <div className="w-[300px] shrink-0 bg-card border-l border-border flex flex-col overflow-y-auto">
-      <div className="px-4 pt-4 pb-2">
-        <div className="text-sm font-bold">Stocks</div>
-      </div>
-
+    <div className="hidden xl:flex w-[280px] shrink-0 bg-card/50 backdrop-blur-sm border-l border-border flex-col overflow-y-auto">
       {loading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : positions.length === 0 ? (
@@ -122,6 +121,10 @@ export function RightPanel() {
         </div>
       ) : (
         <div>
+          <div className="px-4 pt-5 pb-2 flex items-center justify-between">
+            <span className="text-[13px] font-bold">Stocks</span>
+            <span className="text-[11px] text-muted font-mono">{positions.length}</span>
+          </div>
           {positions.map((pos) => (
             <PositionRow
               key={pos.symbol}

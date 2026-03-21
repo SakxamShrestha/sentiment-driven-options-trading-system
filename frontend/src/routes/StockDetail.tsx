@@ -81,11 +81,11 @@ export default function StockDetail() {
   const changePct = snapshot?.change_pct;
 
   return (
-    <div>
+    <div className="max-w-[960px]">
       {/* Header */}
       <div className="flex items-start gap-3 flex-wrap mb-4">
         <button onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg bg-card text-sm text-muted hover:border-accent hover:text-text transition-colors">
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl bg-card text-sm text-muted hover:border-accent hover:text-accent transition-all duration-200">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5" /><path d="M12 5l-7 7 7 7" /></svg>
           Back
         </button>
@@ -108,15 +108,15 @@ export default function StockDetail() {
       </div>
 
       {/* Chart */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden mb-4">
+      <div className="card-elevated overflow-hidden mb-4">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {TIMEFRAMES.map((t) => (
               <button
                 key={t}
                 onClick={() => setTf(t)}
-                className={`px-3 py-1 rounded-md border text-xs transition-all ${
-                  tf === t ? 'bg-text text-white border-text' : 'border-border text-muted hover:border-accent'
+                className={`px-3 py-1 rounded-lg border text-xs transition-all duration-200 ${
+                  tf === t ? 'bg-accent text-white border-accent shadow-md shadow-accent/20' : 'border-border text-muted hover:border-accent/50 hover:text-accent'
                 }`}
               >
                 {TIMEFRAME_LABELS[t]}
@@ -135,14 +135,14 @@ export default function StockDetail() {
       <OrderForm symbol={sym} currentPrice={price ?? null} compact />
 
       {/* Tabs */}
-      <div className="bg-card border border-border rounded-xl p-5 mt-4">
+      <div className="card-elevated p-5 mt-4">
         <div className="flex border-b border-border mb-3">
           {(['position', 'orders', 'sentiment'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
-                tab === t ? 'text-text border-accent' : 'text-muted border-transparent hover:text-text'
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 capitalize ${
+                tab === t ? 'text-accent border-accent' : 'text-muted border-transparent hover:text-text'
               }`}
             >
               {t === 'orders' ? 'Orders' : t === 'position' ? 'Position' : 'Sentiment'}
@@ -192,7 +192,7 @@ export default function StockDetail() {
                       <td className="px-3 py-2">{o.type}</td>
                       <td className="px-3 py-2">{o.filled_qty || 0}/{o.qty || '–'}</td>
                       <td className="px-3 py-2">
-                        <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-blue/10 text-blue'}`}>{o.status}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-info-bg text-blue'}`}>{o.status}</span>
                       </td>
                       <td className="px-3 py-2 text-xs">{fmtDate(o.submitted_at)}</td>
                     </tr>

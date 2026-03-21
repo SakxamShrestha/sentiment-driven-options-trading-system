@@ -74,54 +74,58 @@ export default function Activities() {
 
   const { rows: pnlRows, total: pnlTotal } = useMemo(() => computePnl(fills), [fills]);
 
-  if (loading) return <div className="flex justify-center py-20"><Spinner className="w-6 h-6" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Spinner className="w-5 h-5" /></div>;
 
   return (
-    <div>
+    <div className="max-w-[1100px]">
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="text-lg font-bold">Activities</h1>
+        <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-all duration-200 font-mono font-semibold">Refresh</button>
+      </div>
+
       {/* Realized P&L */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-xs font-semibold text-muted uppercase tracking-wide">Realized P&L — Trade History</div>
+      <div className="card-elevated overflow-hidden mb-5">
+        <div className="flex justify-between items-center px-4 py-3 border-b border-border">
+          <div className="text-xs font-mono text-muted tracking-wider uppercase">Realized P&L</div>
           {pnlRows.length > 0 && (
-            <span className={`text-sm font-bold ${plClass(pnlTotal)}`}>
-              {plSign(pnlTotal)}{fmt(pnlTotal)} total realized
+            <span className={`text-sm font-semibold font-mono ${plClass(pnlTotal)}`}>
+              {plSign(pnlTotal)}{fmt(pnlTotal)}
             </span>
           )}
         </div>
         <VirtualTable
           data={pnlRows}
-          emptyMessage="No completed (matched buy+sell) trades yet"
+          emptyMessage="No completed trades yet"
           onRowClick={(r) => navigate(`/stock/${r.sym}`)}
           columns={[
-            { header: 'Symbol', accessor: (r) => <span className="font-bold text-blue">{r.sym}</span> },
-            { header: 'Qty', accessor: (r) => r.qty.toFixed(4) },
-            { header: 'Avg Entry', accessor: (r) => fmt(r.entry) },
-            { header: 'Exit Price', accessor: (r) => fmt(r.exit) },
-            { header: 'P&L', accessor: (r) => <span className={plClass(r.pnl)}>{plSign(r.pnl)}{fmt(r.pnl)}</span> },
-            { header: 'P&L %', accessor: (r) => <span className={plClass(r.pnlPct)}>{plSign(r.pnlPct)}{r.pnlPct.toFixed(2)}%</span> },
-            { header: 'Closed At', accessor: (r) => <span className="text-xs">{fmtDate(r.time)}</span> },
+            { header: 'Symbol', accessor: (r) => <span className="font-semibold font-mono">{r.sym}</span> },
+            { header: 'Qty', accessor: (r) => <span className="font-mono">{r.qty.toFixed(4)}</span> },
+            { header: 'Avg Entry', accessor: (r) => <span className="font-mono">{fmt(r.entry)}</span> },
+            { header: 'Exit', accessor: (r) => <span className="font-mono">{fmt(r.exit)}</span> },
+            { header: 'P&L', accessor: (r) => <span className={`font-mono ${plClass(r.pnl)}`}>{plSign(r.pnl)}{fmt(r.pnl)}</span> },
+            { header: 'P&L %', accessor: (r) => <span className={`font-mono ${plClass(r.pnlPct)}`}>{plSign(r.pnlPct)}{r.pnlPct.toFixed(2)}%</span> },
+            { header: 'Closed', accessor: (r) => <span className="text-xs text-muted font-mono">{fmtDate(r.time)}</span> },
           ]}
         />
       </div>
 
       {/* All Activities */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-xs font-semibold text-muted uppercase tracking-wide">All Activities</div>
-          <button onClick={load} className="text-xs text-muted hover:text-text transition-colors">↻ Refresh</button>
+      <div className="card-elevated overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <div className="text-xs font-mono text-muted tracking-wider uppercase">All Activities</div>
         </div>
         <VirtualTable
           data={activities}
           emptyMessage="No activities found"
           onRowClick={(a) => a.symbol && navigate(`/stock/${a.symbol}`)}
           columns={[
-            { header: 'Date', accessor: (a) => <span className="text-xs">{fmtDate(a.transaction_time || a.date)}</span> },
-            { header: 'Symbol', accessor: (a) => <span className="font-bold text-blue">{a.symbol || '–'}</span> },
-            { header: 'Type', accessor: (a) => a.activity_type || '–' },
-            { header: 'Side', accessor: (a) => <span className={`font-semibold text-xs uppercase ${a.side === 'buy' ? 'text-gain' : a.side === 'sell' ? 'text-loss' : ''}`}>{a.side || '–'}</span> },
-            { header: 'Qty', accessor: (a) => a.qty || '–' },
-            { header: 'Price', accessor: (a) => a.price ? fmt(a.price) : '–' },
-            { header: 'Amount', accessor: (a) => a.net_amount ? fmt(a.net_amount) : '–' },
+            { header: 'Date', accessor: (a) => <span className="text-xs text-muted font-mono">{fmtDate(a.transaction_time || a.date)}</span> },
+            { header: 'Symbol', accessor: (a) => <span className="font-semibold font-mono">{a.symbol || '–'}</span> },
+            { header: 'Type', accessor: (a) => <span className="text-xs font-mono">{a.activity_type || '–'}</span> },
+            { header: 'Side', accessor: (a) => <span className={`font-medium text-xs uppercase ${a.side === 'buy' ? 'text-gain' : a.side === 'sell' ? 'text-loss' : ''}`}>{a.side || '–'}</span> },
+            { header: 'Qty', accessor: (a) => <span className="font-mono">{a.qty || '–'}</span> },
+            { header: 'Price', accessor: (a) => <span className="font-mono">{a.price ? fmt(a.price) : '–'}</span> },
+            { header: 'Amount', accessor: (a) => <span className="font-mono">{a.net_amount ? fmt(a.net_amount) : '–'}</span> },
           ]}
         />
       </div>

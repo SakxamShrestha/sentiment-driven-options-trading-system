@@ -30,40 +30,42 @@ export default function Orders() {
     } catch { toast('Cancel failed', 'error'); }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Spinner className="w-6 h-6" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Spinner className="w-5 h-5" /></div>;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-xs font-semibold text-muted uppercase tracking-wide">Orders</div>
-        <div className="flex gap-2">
+    <div className="max-w-[1100px]">
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="text-lg font-bold">Orders</h1>
+        <div className="flex gap-2 items-center">
           <select value={status} onChange={(e) => setStatus(e.target.value)}
-            className="text-xs px-2 py-1 border border-border rounded-md bg-bg outline-none">
+            className="text-xs px-2.5 py-1.5 border border-border rounded-xl bg-bg outline-none focus:border-muted transition-all duration-200 font-mono">
             <option value="all">All</option><option value="open">Open</option><option value="closed">Closed</option>
           </select>
-          <button onClick={load} className="text-xs text-muted hover:text-text transition-colors">↻ Refresh</button>
+          <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-all duration-200 font-mono font-semibold">Refresh</button>
         </div>
       </div>
-      <VirtualTable
-        data={orders}
-        emptyMessage="No orders found"
-        onRowClick={(o) => navigate(`/stock/${o.symbol}`)}
-        columns={[
-          { header: 'Symbol', accessor: (o) => <span className="font-bold text-blue">{o.symbol}</span> },
-          { header: 'Side', accessor: (o) => <span className={`font-semibold text-xs uppercase ${o.side === 'buy' ? 'text-gain' : 'text-loss'}`}>{o.side}</span> },
-          { header: 'Type', accessor: (o) => o.type },
-          { header: 'Qty', accessor: (o) => `${o.filled_qty || 0}/${o.qty || o.notional || '–'}` },
-          { header: 'Status', accessor: (o) => (
-            <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-blue/10 text-blue'}`}>{o.status}</span>
-          )},
-          { header: 'Submitted', accessor: (o) => <span className="text-xs">{fmtDate(o.submitted_at)}</span> },
-          { header: 'Filled At', accessor: (o) => <span className="text-xs">{o.filled_at ? fmtDate(o.filled_at) : '–'}</span> },
-          { header: '', accessor: (o) => ['new', 'accepted', 'pending_new'].includes(o.status) ? (
-            <button onClick={(e) => { e.stopPropagation(); cancel(o.id); }}
-              className="text-[11px] border border-border px-2 py-0.5 rounded-md text-loss hover:border-loss transition-colors">Cancel</button>
-          ) : null },
-        ]}
-      />
+      <div className="card-elevated overflow-hidden pt-1">
+        <VirtualTable
+          data={orders}
+          emptyMessage="No orders found"
+          onRowClick={(o) => navigate(`/stock/${o.symbol}`)}
+          columns={[
+            { header: 'Symbol', accessor: (o) => <span className="font-semibold font-mono">{o.symbol}</span> },
+            { header: 'Side', accessor: (o) => <span className={`font-medium text-xs uppercase ${o.side === 'buy' ? 'text-gain' : 'text-loss'}`}>{o.side}</span> },
+            { header: 'Type', accessor: (o) => <span className="font-mono text-xs">{o.type}</span> },
+            { header: 'Qty', accessor: (o) => <span className="font-mono">{o.filled_qty || 0}/{o.qty || o.notional || '–'}</span> },
+            { header: 'Status', accessor: (o) => (
+              <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-info-bg text-blue'}`}>{o.status}</span>
+            )},
+            { header: 'Submitted', accessor: (o) => <span className="text-xs text-muted font-mono">{fmtDate(o.submitted_at)}</span> },
+            { header: 'Filled', accessor: (o) => <span className="text-xs text-muted font-mono">{o.filled_at ? fmtDate(o.filled_at) : '–'}</span> },
+            { header: '', accessor: (o) => ['new', 'accepted', 'pending_new'].includes(o.status) ? (
+              <button onClick={(e) => { e.stopPropagation(); cancel(o.id); }}
+                className="text-[11px] border border-border px-2 py-0.5 rounded-xl text-loss hover:border-loss transition-all duration-200">Cancel</button>
+            ) : null },
+          ]}
+        />
+      </div>
     </div>
   );
 }
