@@ -34,7 +34,7 @@ export default function Notifications() {
         </div>
         <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-colors font-mono font-semibold">Refresh</button>
       </div>
-      <div className="card-elevated p-5">
+      <div className="terminal-card p-5">
         <VirtualTable
           data={notifications}
           emptyMessage="No notifications yet. Place a trade to see activity here."
@@ -44,7 +44,7 @@ export default function Notifications() {
             {
               header: '',
               accessor: (n) => (
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                <div className={`w-7 h-7 rounded-sm flex items-center justify-center ${
                   n.side === 'buy' ? 'bg-gain-soft text-gain' : n.side === 'sell' ? 'bg-loss-soft text-loss' : 'bg-hover text-muted'
                 }`}>
                   {n.side === 'buy' ? (
@@ -57,7 +57,7 @@ export default function Notifications() {
               className: 'w-10',
             },
             { header: 'Activity', accessor: (n) => <span className="text-[13px] font-medium">{n.message}</span> },
-            { header: 'Symbol', accessor: (n) => <span className="font-bold text-blue">{n.symbol || '–'}</span> },
+            { header: 'Symbol', accessor: (n) => <span className="font-bold font-mono text-accent">{n.symbol || '–'}</span> },
             { header: 'Side', accessor: (n) => (
               <span className={`font-semibold text-xs uppercase ${n.side === 'buy' ? 'text-gain' : 'text-loss'}`}>
                 {n.side || '–'}

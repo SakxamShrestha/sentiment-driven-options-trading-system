@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Spinner } from '../shared/Spinner';
 import { NotificationDropdown } from '../shared/NotificationDropdown';
-import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useSidebarStore } from '../../stores/useSidebarStore';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const NavIcon = {
@@ -18,11 +17,6 @@ const NavIcon = {
   sentiment: (
     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-    </svg>
-  ),
-  backtest: (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
     </svg>
   ),
   learn: (
@@ -60,6 +54,21 @@ const NavIcon = {
       <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
     </svg>
   ),
+  chevronLeft: (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  ),
+  menu: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  ),
+  close: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  ),
 };
 
 const NAV_SECTIONS = [
@@ -79,7 +88,6 @@ const NAV_SECTIONS = [
     label: 'Tools',
     items: [
       { to: '/sentiment', label: 'Sentiment', icon: NavIcon.sentiment },
-      { to: '/backtest', label: 'Backtest', icon: NavIcon.backtest },
       { to: '/learn', label: 'Learn', icon: NavIcon.learn },
     ],
   },
@@ -98,248 +106,147 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'md' }) {
   if (user?.photoURL) {
     return (
       <img src={user.photoURL} referrerPolicy="no-referrer"
-        className={`${cls} rounded-full object-cover shrink-0`} alt="avatar" />
+        className={`${cls} rounded-sm object-cover shrink-0`} alt="avatar" />
     );
   }
   return (
-    <div className={`${cls} rounded-full flex items-center justify-center text-white font-bold shrink-0`} style={{ background: 'linear-gradient(135deg, #2755e8, #3861fb)' }}>
+    <div className={`${cls} rounded-sm flex items-center justify-center font-bold shrink-0`}
+      style={{ background: 'var(--color-accent)', color: '#09090b' }}>
       {initials}
     </div>
   );
 }
 
-const drawerLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-    isActive ? 'bg-active-bg text-accent font-semibold' : 'text-muted hover:text-text hover:bg-hover'
+// ─── NavLink class helpers ────────────────────────────────────────────────────
+const linkClass = (isActive: boolean, collapsed: boolean) =>
+  `flex items-center gap-3 px-3 py-2.5 rounded-sm text-[13px] transition-colors duration-100 ${
+    collapsed ? 'justify-center' : ''
+  } ${
+    isActive ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-text hover:bg-hover'
   }`;
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export function Navbar() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+export function Sidebar() {
+  const { isCollapsed, isMobileOpen, toggleCollapse, toggleMobile, closeMobile } = useSidebarStore();
   const location = useLocation();
-  const navigate = useNavigate();
-  const isHome = location.pathname === '/';
   const { user } = useAuthStore();
   const { unreadCount } = useNotificationStore();
 
-  const [query, setQuery] = useState('');
-  const [searchResult, setSearchResult] = useState<{
-    symbol: string; price: number | null; change_pct: number | null;
-  } | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [searchFocused, setSearchFocused] = useState(false);
+  // Close mobile drawer on route change
+  useEffect(() => { closeMobile(); }, [location.pathname]);
 
-  const doSearch = async (val: string) => {
-    setSearchLoading(true);
-    try {
-      const d = await api.getSnapshot(val);
-      setSearchResult(d.price ? { symbol: d.symbol, price: d.price, change_pct: d.change_pct } : null);
-      setSearchOpen(true);
-    } catch {
-      setSearchResult(null);
-      setSearchOpen(true);
-    }
-    setSearchLoading(false);
-  };
 
-  const onSearchInput = (val: string) => {
-    setQuery(val);
-    clearTimeout(searchTimer.current);
-    const upper = val.trim().toUpperCase();
-    if (upper.length < 2) { setSearchOpen(false); return; }
-    setSearchLoading(true);
-    setSearchOpen(true);
-    searchTimer.current = setTimeout(() => doSearch(upper), 400);
-  };
-
-  const openStock = (sym: string) => {
-    setSearchOpen(false);
-    setQuery('');
-    setDrawerOpen(false);
-    navigate(`/stock/${sym}`);
-  };
-
+  // Lock body scroll when mobile drawer is open
   useEffect(() => {
-    const handle = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
-    };
-    document.addEventListener('click', handle);
-    return () => document.removeEventListener('click', handle);
-  }, []);
-
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
-
-  // ⌘K / Ctrl+K focuses the search input
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    document.body.style.overflow = isMobileOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [drawerOpen]);
+  }, [isMobileOpen]);
 
-  const SearchDropdown = searchOpen && (
-    <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-card border border-border rounded-lg shadow-2xl z-[200] overflow-hidden">
-      {searchLoading ? (
-        <div className="flex items-center gap-3 px-4 py-4 text-muted text-sm">
-          <Spinner />
-          <span>Looking up <span className="font-mono font-semibold text-text">{query.toUpperCase()}</span>…</span>
-        </div>
-      ) : searchResult ? (
-        <button
-          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-hover transition-colors text-left group"
-          onClick={() => openStock(searchResult.symbol)}
-        >
-          <div className="flex items-center gap-3">
-            {/* Ticker icon */}
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,rgba(56,97,251,0.15),rgba(107,138,253,0.08))' }}>
-              <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              </svg>
-            </div>
-            <div>
-              <span className="font-semibold text-sm font-mono block leading-tight">{searchResult.symbol}</span>
-              <span className="text-[11px] text-muted">View chart &amp; trade</span>
-            </div>
-            {searchResult.change_pct !== null && (
-              <span className={`text-xs font-mono px-1.5 py-0.5 rounded-lg font-semibold ${
-                searchResult.change_pct >= 0 ? 'text-gain bg-gain-soft' : 'text-loss bg-loss-soft'
-              }`}>
-                {searchResult.change_pct >= 0 ? '+' : ''}{searchResult.change_pct.toFixed(2)}%
-              </span>
-            )}
+  const NavLinks = ({ collapsed }: { collapsed: boolean }) => (
+    <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-6 scrollbar-thin">
+      {NAV_SECTIONS.map((section, i) => (
+        <div key={i}>
+          {section.label && !collapsed && (
+            <p className="terminal-section-label mb-2">{section.label}</p>
+          )}
+          <div className="flex flex-col gap-1">
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={'end' in item ? item.end : undefined}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) => linkClass(isActive, collapsed)}
+              >
+                {item.icon}
+                {!collapsed && <span className="truncate">{item.label}</span>}
+                {item.to === '/notifications' && unreadCount > 0 && !collapsed && (
+                  <span className="ml-auto min-w-[18px] h-[18px] bg-accent text-bg text-[10px] font-mono font-bold rounded-sm flex items-center justify-center px-1 leading-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                {item.to === '/notifications' && unreadCount > 0 && collapsed && (
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-accent rounded-full" />
+                )}
+              </NavLink>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-bold">
-              {searchResult.price ? `$${searchResult.price.toFixed(2)}` : '–'}
-            </span>
-            <svg className="w-4 h-4 text-muted group-hover:text-text transition-colors" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </div>
-        </button>
-      ) : (
-        <div className="px-4 py-4 text-sm text-muted text-center">
-          No results for <span className="font-mono font-semibold text-text">"{query.toUpperCase()}"</span>
         </div>
-      )}
-    </div>
+      ))}
+    </nav>
   );
 
   return (
     <>
-      {/* ── Topbar ──────────────────────────────────────────────────────────── */}
-      <header className="h-14 glass border-b border-border/50 flex items-center px-4 md:px-6 shrink-0 sticky top-0 z-50">
-
-        {/* Logo — left */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md transition-shadow" style={{ background: 'linear-gradient(135deg, #2755e8, #3861fb)', boxShadow: '0 2px 8px rgba(56,97,251,0.30)' }}>
-            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      {/* ── Mobile topbar (< md) ──────────────────────────────────────── */}
+      <div className="md:hidden h-12 flex items-center justify-between px-4 bg-sidebar-bg border-b border-sidebar-border shrink-0 fixed top-0 left-0 right-0 z-50">
+        <button
+          onClick={toggleMobile}
+          aria-label="Open navigation"
+          className="p-1.5 rounded-sm text-muted hover:text-text hover:bg-hover transition-colors"
+        >
+          {NavIcon.menu}
+        </button>
+        <Link to="/" className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-sm flex items-center justify-center" style={{ background: 'var(--color-accent)' }}>
+            <svg className="w-3 h-3" style={{ color: '#09090b' }} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
             </svg>
           </div>
-          <span className="text-sm font-bold tracking-tight hidden sm:inline font-mono">
-            TradeSent<span className="text-accent">.AI</span>
-          </span>
+          <span className="text-sm font-bold font-mono">TradeSent<span className="text-accent">.AI</span></span>
         </Link>
+        <div className="flex items-center gap-1">
+          <NotificationDropdown />
+        </div>
+      </div>
 
-        {/* Search — flex-1 center column (home only) */}
-        <div className={`hidden sm:flex flex-1 justify-center px-6 ${!isHome ? 'invisible pointer-events-none' : ''}`}>
-          <div ref={searchRef} className="relative w-full max-w-[480px]">
-            {/* Search icon — transitions to accent when focused */}
-            <svg
-              className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none transition-colors duration-200 ${
-                searchFocused ? 'text-accent' : 'text-muted'
-              }`}
-              fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-            >
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-            </svg>
+      {/* Spacer for mobile topbar */}
+      <div className="md:hidden h-12 shrink-0" />
 
-            <input
-              ref={inputRef}
-              className="w-full h-10 pl-12 pr-24 rounded-xl text-sm text-text outline-none transition-all duration-200 placeholder:text-muted/70
-                         bg-hover/50 border border-border/60
-                         focus:bg-card focus:border-accent/50 focus:ring-2 focus:ring-accent/10"
-              placeholder="Search ticker…"
-              value={query}
-              onChange={(e) => onSearchInput(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { const v = query.trim().toUpperCase(); if (v) openStock(v); }
-                if (e.key === 'Escape') { setSearchOpen(false); setQuery(''); inputRef.current?.blur(); }
-              }}
-            />
-
-            {/* ⌘K badge — hides when typing */}
-            {!query && !searchFocused && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pointer-events-none">
-                <kbd className="h-5 min-w-[20px] px-1 text-[10px] font-mono text-muted/50 bg-border/30 border border-border/50 rounded flex items-center justify-center">⌘</kbd>
-                <kbd className="h-5 min-w-[20px] px-1 text-[10px] font-mono text-muted/50 bg-border/30 border border-border/50 rounded flex items-center justify-center">K</kbd>
-              </div>
+      {/* ── Desktop sidebar ───────────────────────────────────────────── */}
+      <aside
+        className={`hidden md:flex flex-col h-screen shrink-0 overflow-hidden bg-sidebar-bg border-r border-sidebar-border transition-[width] duration-200 ease-in-out relative`}
+        style={{ width: isCollapsed ? 52 : 200 }}
+      >
+        {/* Logo */}
+        <div className={`flex items-center h-12 border-b border-sidebar-border shrink-0 px-3 ${isCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+          <Link to="/" className="flex items-center gap-2.5 min-w-0">
+            <div className="w-6 h-6 rounded-sm flex items-center justify-center shrink-0" style={{ background: 'var(--color-accent)' }}>
+              <svg className="w-3 h-3" style={{ color: '#09090b' }} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <span className="text-sm font-bold font-mono whitespace-nowrap overflow-hidden">
+                TradeSent<span className="text-accent">.AI</span>
+              </span>
             )}
-
-            {/* Clear button — shows when query is present */}
-            {query && (
-              <button
-                onMouseDown={(e) => { e.preventDefault(); setQuery(''); setSearchOpen(false); inputRef.current?.focus(); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-border/60 hover:bg-border flex items-center justify-center transition-colors"
-                aria-label="Clear search"
-              >
-                <svg className="w-2.5 h-2.5 text-muted" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-
-            {SearchDropdown}
-          </div>
+          </Link>
         </div>
 
-        {/* Right cluster — bell, profile, hamburger */}
-        <div className="ml-auto sm:ml-0 flex items-center gap-1">
-          <div className="hidden sm:block">
-            <NotificationDropdown />
-          </div>
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              `hidden sm:flex p-1 rounded-full transition-all duration-200 ${
-                isActive ? 'ring-2 ring-accent ring-offset-2' : 'hover:ring-2 hover:ring-border hover:ring-offset-1'
-              }`
-            }
-          >
-            <Avatar size="md" />
+        {/* Nav links */}
+        <NavLinks collapsed={isCollapsed} />
+
+        {/* Footer */}
+        <div className={`border-t border-sidebar-border px-2 py-3 shrink-0 flex items-center ${isCollapsed ? 'flex-col gap-1' : 'justify-between gap-1'}`}>
+          <NotificationDropdown />
+          <NavLink to="/profile" className={({ isActive }) => `p-1.5 rounded-sm transition-colors ${isActive ? 'text-accent bg-accent/10' : 'text-muted hover:text-text hover:bg-hover'}`}>
+            <Avatar size="sm" />
           </NavLink>
           <button
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open navigation"
-            className="p-2 rounded-lg text-muted hover:text-text hover:bg-hover transition-all duration-200"
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-sm text-muted hover:text-text hover:bg-hover transition-colors"
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{ transform: isCollapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {NavIcon.chevronLeft}
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* ── Right-side drawer ────────────────────────────────────────────────── */}
+      {/* ── Mobile drawer (slides from LEFT) ─────────────────────────── */}
       <AnimatePresence>
-        {drawerOpen && (
+        {isMobileOpen && (
           <>
             {/* Backdrop */}
             <motion.div
@@ -348,103 +255,61 @@ export function Navbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[598] bg-black/40 backdrop-blur-sm"
-              onClick={() => setDrawerOpen(false)}
+              className="fixed inset-0 z-[598] bg-black/50"
+              onClick={closeMobile}
             />
 
-            {/* Panel — slides in from the RIGHT */}
+            {/* Panel — slides in from LEFT */}
             <motion.aside
               key="drawer"
-              initial={{ x: 288 }}
+              initial={{ x: -288 }}
               animate={{ x: 0 }}
-              exit={{ x: 288 }}
+              exit={{ x: -288 }}
               transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="fixed top-0 right-0 h-full w-72 z-[599] flex flex-col bg-card border-l border-border shadow-2xl"
+              className="fixed top-0 left-0 h-full w-72 z-[599] flex flex-col bg-card border-r border-border shadow-2xl"
             >
               {/* Drawer header */}
-              <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
-                {/* Close button on the left (nearest to content) */}
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  aria-label="Close navigation"
-                  className="p-1.5 rounded-lg text-muted hover:text-text hover:bg-hover transition-all duration-200"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                {/* Brand — right side of drawer header */}
-                <Link to="/" className="flex items-center gap-2 group" onClick={() => setDrawerOpen(false)}>
-                  <span className="text-sm font-bold tracking-tight font-mono">
-                    TradeSent<span className="text-accent">.AI</span>
-                  </span>
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #2755e8, #3861fb)' }}>
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <div className="h-12 flex items-center justify-between px-4 border-b border-border shrink-0">
+                <Link to="/" className="flex items-center gap-2" onClick={closeMobile}>
+                  <div className="w-6 h-6 rounded-sm flex items-center justify-center" style={{ background: 'var(--color-accent)' }}>
+                    <svg className="w-3 h-3" style={{ color: '#09090b' }} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
                     </svg>
                   </div>
+                  <span className="text-sm font-bold font-mono">TradeSent<span className="text-accent">.AI</span></span>
                 </Link>
-              </div>
-
-              {/* Mobile-only search (sm+ uses header search) — home only */}
-              <div className={`sm:hidden px-3 pt-3 ${!isHome ? 'hidden' : ''}`}>
-                <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"
-                    fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-                  >
-                    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                  </svg>
-                  <input
-                    className="w-full h-10 pl-10 pr-4 border border-border rounded-xl bg-bg/60 text-sm text-text outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-muted"
-                    placeholder="Search symbol…"
-                    value={query}
-                    onChange={(e) => onSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { const v = query.trim().toUpperCase(); if (v) openStock(v); }
-                    }}
-                  />
-                  {searchOpen && (
-                    <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-card border border-border rounded-xl shadow-xl z-[200] overflow-hidden">
-                      {searchLoading ? (
-                        <div className="flex items-center gap-2 px-4 py-3 text-muted text-sm"><Spinner /> Looking up…</div>
-                      ) : searchResult ? (
-                        <button
-                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-hover transition-colors text-left"
-                          onClick={() => openStock(searchResult.symbol)}
-                        >
-                          <span className="font-semibold text-sm font-mono">{searchResult.symbol}</span>
-                          <span className="font-mono text-sm">{searchResult.price ? `$${searchResult.price.toFixed(2)}` : '–'}</span>
-                        </button>
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-muted">No data for "{query.toUpperCase()}"</div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={closeMobile}
+                  aria-label="Close navigation"
+                  className="p-1.5 rounded-sm text-muted hover:text-text hover:bg-hover transition-colors"
+                >
+                  {NavIcon.close}
+                </button>
               </div>
 
               {/* Nav links */}
-              <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-5">
+              <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6 scrollbar-thin">
                 {NAV_SECTIONS.map((section, i) => (
                   <div key={i}>
                     {section.label && (
-                      <p className="px-3 mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted">
-                        {section.label}
-                      </p>
+                      <p className="terminal-section-label mb-2">{section.label}</p>
                     )}
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-1">
                       {section.items.map((item) => (
                         <NavLink
                           key={item.to}
                           to={item.to}
                           end={'end' in item ? item.end : undefined}
-                          className={drawerLinkClass}
+                          className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors duration-100 ${
+                              isActive ? 'bg-accent/10 text-accent font-semibold' : 'text-muted hover:text-text hover:bg-hover'
+                            }`
+                          }
                         >
                           {item.icon}
                           <span>{item.label}</span>
                           {item.to === '/notifications' && unreadCount > 0 && (
-                            <span className="ml-auto min-w-[18px] h-[18px] bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                            <span className="ml-auto min-w-[18px] h-[18px] bg-accent text-bg text-[10px] font-mono font-bold rounded-sm flex items-center justify-center px-1 leading-none">
                               {unreadCount > 9 ? '9+' : unreadCount}
                             </span>
                           )}
@@ -457,10 +322,17 @@ export function Navbar() {
 
               {/* Profile footer */}
               <div className="px-3 py-3 border-t border-border shrink-0">
-                <NavLink to="/profile" className={drawerLinkClass}>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors duration-100 ${
+                      isActive ? 'bg-accent/10 text-accent' : 'text-muted hover:text-text hover:bg-hover'
+                    }`
+                  }
+                >
                   <Avatar size="sm" />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium leading-tight truncate">
+                    <p className="text-sm font-medium leading-tight truncate font-mono">
                       {user?.displayName ?? user?.email ?? 'Profile'}
                     </p>
                     {user?.email && user?.displayName && (

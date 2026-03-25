@@ -29,7 +29,7 @@ class LunarCrushService:
         self._session = requests.Session() if requests else None
 
     def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
-        if not self.api_key:
+        if not self.api_key or self.api_key.startswith('your_'):
             logger.debug("LUNARCRUSH_API_KEY not set; skipping LunarCrush request")
             return None
         if not self._session:

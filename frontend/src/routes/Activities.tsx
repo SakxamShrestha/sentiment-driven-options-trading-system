@@ -84,7 +84,7 @@ export default function Activities() {
       </div>
 
       {/* Realized P&L */}
-      <div className="card-elevated overflow-hidden mb-5">
+      <div className="terminal-card overflow-hidden mb-5">
         <div className="flex justify-between items-center px-4 py-3 border-b border-border">
           <div className="text-xs font-mono text-muted tracking-wider uppercase">Realized P&L</div>
           {pnlRows.length > 0 && (
@@ -110,7 +110,7 @@ export default function Activities() {
       </div>
 
       {/* All Activities */}
-      <div className="card-elevated overflow-hidden">
+      <div className="terminal-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <div className="text-xs font-mono text-muted tracking-wider uppercase">All Activities</div>
         </div>

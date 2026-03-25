@@ -78,65 +78,37 @@ export default function Home() {
   const isUp = dailyPl >= 0;
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 md:space-y-8">
+    <div className="max-w-4xl space-y-5">
 
       {/* ── Hero card ───────────────────────────────────────────────── */}
       <motion.div {...fade(0)}>
         <div
-          className="relative overflow-hidden rounded-2xl p-6 md:p-7"
-          style={{
-            background: 'linear-gradient(135deg, #0b1326 0%, #0f1a36 45%, #131b2e 100%)',
-            boxShadow: '0 8px 40px rgba(56,97,251,0.10), 0 2px 8px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(56,97,251,0.12)',
-          }}
+          className="terminal-card p-6 md:p-7"
+          style={{ borderLeft: '3px solid var(--color-accent)' }}
         >
-          {/* Subtle depth orbs */}
-          <div
-            className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(56,97,251,0.14) 0%, transparent 65%)' }}
-          />
-          <div
-            className="pointer-events-none absolute -bottom-8 -left-8 w-48 h-48 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(107,138,253,0.08) 0%, transparent 70%)' }}
-          />
-
-          <div className="relative z-10 flex flex-col gap-4">
-            {/* Live badge */}
-            <div
-              className="inline-flex items-center gap-2 w-fit px-3 py-1 rounded-full text-xs font-semibold"
-              style={{ background: 'rgba(56,97,251,0.12)', color: '#b8c3ff', border: '1px solid rgba(56,97,251,0.22)' }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#4ade80' }} />
-              Paper Trading — TradeSent.AI
-            </div>
-
+          <div className="flex flex-col gap-4">
             {/* Equity hero */}
             <div>
-              <div className="text-xs font-medium mb-1.5 tracking-wider uppercase" style={{ color: 'rgba(184,195,255,0.55)' }}>
+              <div className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1.5">
                 Portfolio Value
               </div>
-              <div className="text-4xl md:text-5xl font-bold font-mono leading-none tracking-tight text-white">
+              <div className="text-4xl md:text-5xl font-bold font-mono leading-none tracking-tight">
                 <AnimatedNumber value={equity} prefix="$" />
               </div>
             </div>
 
             {/* Daily P&L row */}
             <div className="flex items-center gap-3">
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold font-mono"
-                style={{
-                  background: isUp ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.18)',
-                  color: isUp ? '#4ade80' : '#f87171',
-                  border: `1px solid ${isUp ? 'rgba(74,222,128,0.28)' : 'rgba(248,113,113,0.28)'}`,
-                }}
-              >
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-semibold font-mono ${
+                isUp ? 'bg-gain-soft text-gain' : 'bg-loss-soft text-loss'
+              }`}>
                 {isUp ? '▲' : '▼'} {plSign(dailyPl)}{fmt(Math.abs(dailyPl))}
               </span>
-              <span className="text-xs font-mono" style={{ color: 'rgba(184,195,255,0.55)' }}>
+              <span className="text-xs font-mono text-muted">
                 {plSign(dailyPlPct)}{dailyPlPct.toFixed(2)}% today
               </span>
-              <span className="text-xs" style={{ color: 'rgba(184,195,255,0.35)' }}>·</span>
-              <span className="text-xs" style={{ color: 'rgba(184,195,255,0.45)' }}>
+              <span className="text-xs text-muted">·</span>
+              <span className="text-xs text-muted">
                 Started at {fmt(STARTING_EQUITY)}
               </span>
             </div>
@@ -149,15 +121,10 @@ export default function Home() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
           {/* Total Equity */}
-          <div className="card-elevated p-4 flex flex-col gap-3">
+          <div className="terminal-card p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Total Equity</span>
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(56,97,251,0.12)', color: '#6b8afd' }}
-              >
-                <IconTrend />
-              </div>
+              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Total Equity</span>
+              <span className="text-accent"><IconTrend /></span>
             </div>
             <div>
               <div className="text-lg font-mono font-bold tabular-nums">{fmt(account?.equity)}</div>
@@ -166,15 +133,10 @@ export default function Home() {
           </div>
 
           {/* Buying Power */}
-          <div className="card-elevated p-4 flex flex-col gap-3">
+          <div className="terminal-card p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Buying Power</span>
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(56,97,251,0.12)', color: '#6b8afd' }}
-              >
-                <IconWallet />
-              </div>
+              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Buying Power</span>
+              <span className="text-accent"><IconWallet /></span>
             </div>
             <div>
               <div className="text-lg font-mono font-bold tabular-nums">{fmt(account?.buying_power)}</div>
@@ -183,18 +145,10 @@ export default function Home() {
           </div>
 
           {/* Daily P&L */}
-          <div className="card-elevated p-4 flex flex-col gap-3">
+          <div className="terminal-card p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Daily P&amp;L</span>
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{
-                  background: dailyPl >= 0 ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
-                  color: dailyPl >= 0 ? '#4ade80' : '#f87171',
-                }}
-              >
-                <IconBarChart />
-              </div>
+              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Daily P&amp;L</span>
+              <span className={dailyPl >= 0 ? 'text-gain' : 'text-loss'}><IconBarChart /></span>
             </div>
             <div>
               <div className={`text-lg font-mono font-bold tabular-nums ${plClass(dailyPl)}`}>
@@ -205,18 +159,10 @@ export default function Home() {
           </div>
 
           {/* Total Return */}
-          <div className="card-elevated p-4 flex flex-col gap-3">
+          <div className="terminal-card p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted font-medium uppercase tracking-wide">Total Return</span>
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{
-                  background: totalPlPct >= 0 ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
-                  color: totalPlPct >= 0 ? '#4ade80' : '#f87171',
-                }}
-              >
-                <IconPercent />
-              </div>
+              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Total Return</span>
+              <span className={totalPlPct >= 0 ? 'text-gain' : 'text-loss'}><IconPercent /></span>
             </div>
             <div>
               <div className={`text-lg font-mono font-bold tabular-nums ${plClass(totalPlPct)}`}>
@@ -231,20 +177,20 @@ export default function Home() {
 
       {/* ── Chart card ──────────────────────────────────────────────── */}
       <motion.div {...fade(0.16)}>
-        <div className="card-elevated overflow-hidden">
+        <div className="terminal-card overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold">Portfolio Performance</span>
-              <span className="text-xs text-muted hidden sm:block">Equity curve</span>
+              <span className="text-sm font-semibold font-mono">Portfolio Performance</span>
+              <span className="text-[10px] text-muted font-mono uppercase tracking-widest hidden sm:block">Equity curve</span>
             </div>
             <div className="flex items-center gap-1">
               {PORTFOLIO_PERIODS.map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all duration-200 ${
+                  className={`px-2.5 py-1 rounded-sm text-xs font-mono font-medium transition-colors duration-150 ${
                     period === p
-                      ? 'bg-accent text-white shadow-sm'
+                      ? 'bg-accent text-bg'
                       : 'text-muted hover:text-text hover:bg-hover'
                   }`}
                 >

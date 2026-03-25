@@ -1,67 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* ── Light mode — Institutional Blue ───────────────────────────────── */
-  --color-bg:            #f4f6ff;
-  --color-card:          #ffffff;
-  --color-border:        #dde2f4;
-  --color-text:          #0b1326;
-  --color-muted:         #5e6a99;
-  --color-accent:        #3861fb;
-  --color-accent-muted:  #6b8afd;
-  --color-hover:         #ebeeff;
+  /* ── Light mode — Terminal on white paper ───────────────────────────── */
+  --color-bg:              #fafafa;
+  --color-surface:         #f4f4f5;
+  --color-card:            #ffffff;
+  --color-border:          #e4e4e7;
+  --color-text:            #18181b;
+  --color-muted:           #a1a1aa;
+  --color-accent:          #b45309;
+  --color-accent-muted:    #d97706;
+  --color-hover:           #f4f4f5;
 
   /* Semantic */
-  --color-gain:          #16a34a;
-  --color-loss:          #dc2626;
-  --color-gain-soft:     rgba(74, 222, 128, 0.10);
-  --color-loss-soft:     rgba(248, 113, 113, 0.10);
-  --color-blue:          #3861fb;
+  --color-gain:            #16a34a;
+  --color-loss:            #dc2626;
+  --color-gain-soft:       rgba(22, 163, 74, 0.10);
+  --color-loss-soft:       rgba(220, 38, 38, 0.10);
 
-  --color-info-bg:       rgba(56, 97, 251, 0.05);
-  --color-info-border:   rgba(56, 97, 251, 0.15);
-  --color-info-text:     #3861fb;
-  --color-active-bg:     rgba(56, 97, 251, 0.08);
-  --color-active-border: #3861fb;
-  --color-buzz-from:     rgba(56, 97, 251, 0.04);
-  --color-buzz-to:       rgba(56, 97, 251, 0.02);
-
-  /* Glass */
-  --color-glass:         rgba(255, 255, 255, 0.72);
-  --color-glass-border:  rgba(255, 255, 255, 0.30);
+  /* Sidebar */
+  --color-sidebar-bg:      #f4f4f5;
+  --color-sidebar-border:  #e4e4e7;
 
   /* Fonts */
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
-/* ── Dark mode — Deep Equity Blue (Institutional Terminal) ─────────── */
+/* ── Dark mode — Bloomberg Terminal ────────────────────────────────────── */
 :root.dark {
-  --color-bg:            #0b1326;
-  --color-card:          #131b2e;
-  --color-border:        #1e2848;
-  --color-text:          #ffffff;
-  --color-muted:         #b8c3ff;
-  --color-accent:        #3861fb;
-  --color-accent-muted:  #6b8afd;
-  --color-hover:         #1a2440;
+  --color-bg:              #09090b;
+  --color-surface:         #111111;
+  --color-card:            #18181b;
+  --color-border:          #27272a;
+  --color-text:            #e4e4e7;
+  --color-muted:           #71717a;
+  --color-accent:          #f59e0b;
+  --color-accent-muted:    #d97706;
+  --color-hover:           #1f1f23;
 
-  --color-gain:          #4ade80;
-  --color-loss:          #f87171;
-  --color-gain-soft:     rgba(74, 222, 128, 0.12);
-  --color-loss-soft:     rgba(248, 113, 113, 0.12);
-  --color-blue:          #3861fb;
+  --color-gain:            #22c55e;
+  --color-loss:            #ef4444;
+  --color-gain-soft:       rgba(34, 197, 94, 0.12);
+  --color-loss-soft:       rgba(239, 68, 68, 0.12);
 
-  --color-info-bg:       rgba(56, 97, 251, 0.10);
-  --color-info-border:   rgba(56, 97, 251, 0.22);
-  --color-info-text:     #b8c3ff;
-  --color-active-bg:     rgba(56, 97, 251, 0.14);
-  --color-active-border: #3861fb;
-  --color-buzz-from:     rgba(56, 97, 251, 0.06);
-  --color-buzz-to:       rgba(56, 97, 251, 0.02);
-
-  --color-glass:         rgba(11, 19, 38, 0.82);
-  --color-glass-border:  rgba(30, 40, 72, 0.70);
+  --color-sidebar-bg:      #111111;
+  --color-sidebar-border:  #27272a;
 }
 
 /* ── Keyframes ─────────────────────────────────────────────────────────── */
@@ -73,21 +58,13 @@
   0%   { background-color: var(--color-loss-soft); }
   100% { background-color: transparent; }
 }
-@keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
-}
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.3; }
-  50%       { opacity: 0.6; }
-}
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────── */
@@ -98,9 +75,10 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Mono numbers */
@@ -108,82 +86,87 @@ body {
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 0; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 
 /* ── Animations ────────────────────────────────────────────────────────── */
-.animate-flash-green  { animation: flash-green 0.6s ease-out; }
-.animate-flash-red    { animation: flash-red 0.6s ease-out; }
-.animate-gradient     { animation: gradient-shift 8s ease infinite; background-size: 200% 200%; }
-.animate-float        { animation: float 4s ease-in-out infinite; }
-.animate-pulse-glow   { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-flash-green { animation: flash-green 0.6s ease-out; }
+.animate-flash-red   { animation: flash-red 0.6s ease-out; }
+.animate-blink       { animation: blink 1s step-end infinite; }
 .animate-shimmer {
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2.5s ease-in-out infinite;
 }
 
-/* ── Glassmorphism ─────────────────────────────────────────────────────── */
-.glass {
-  background: var(--color-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--color-glass-border);
-}
-
-/* ── Card ──────────────────────────────────────────────────────────────── */
-.card-elevated {
+/* ── Terminal Card ─────────────────────────────────────────────────────── */
+.terminal-card {
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.03);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 2px;
+  transition: border-color 0.15s ease;
 }
-.card-elevated:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 20px rgba(0,0,0,0.05);
-  border-color: rgba(56, 97, 251, 0.35);
-}
-:root.dark .card-elevated {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.40), 0 4px 16px rgba(0,0,0,0.25);
-}
-:root.dark .card-elevated:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.50), 0 8px 24px rgba(56, 97, 251, 0.08);
-  border-color: rgba(56, 97, 251, 0.40);
+.terminal-card:hover {
+  border-color: var(--color-accent);
 }
 
-/* ── Gradient text ─────────────────────────────────────────────────────── */
-.gradient-text {
-  background: linear-gradient(135deg, #3861fb 0%, #6b8afd 50%, #b8c3ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Accent button ─────────────────────────────────────────────────────── */
-.btn-accent {
-  background: linear-gradient(135deg, #2755e8, #3861fb);
-  color: #fff;
+/* ── Terminal Button ───────────────────────────────────────────────────── */
+.terminal-btn {
+  background: var(--color-accent);
+  color: #09090b;
   border: none;
-  border-radius: 6px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
   font-weight: 600;
-  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-  box-shadow: 0 2px 8px rgba(56, 97, 251, 0.30);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
-.btn-accent:hover {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(56, 97, 251, 0.38);
+.terminal-btn:hover  { opacity: 0.85; }
+.terminal-btn:active { opacity: 0.70; }
+.terminal-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Terminal Input ────────────────────────────────────────────────────── */
+.terminal-input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
 }
-.btn-accent:active { transform: translateY(0); }
+.terminal-input:focus { border-color: var(--color-accent); }
+.terminal-input::placeholder {
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ── Section Label ─────────────────────────────────────────────────────── */
+.terminal-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 0 12px;
+  margin-bottom: 4px;
+}
+
+/* ── Thin Scrollbar ────────────────────────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
 
 /* ── Selection ─────────────────────────────────────────────────────────── */
-::selection { background: rgba(56, 97, 251, 0.15); }
-:root.dark ::selection { background: rgba(56, 97, 251, 0.20); }
-
-/* ── Dot grid pattern ──────────────────────────────────────────────────── */
-.dot-grid {
-  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
+::selection { background: rgba(245, 158, 11, 0.20); }
+:root.dark ::selection { background: rgba(245, 158, 11, 0.25); }

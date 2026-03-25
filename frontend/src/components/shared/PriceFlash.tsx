@@ -18,10 +18,13 @@ export const PriceFlash = memo(function PriceFlash({ value, className = '' }: Pr
     return () => clearTimeout(t);
   }, [value]);
 
+  const getVar = (v: string) =>
+    getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
   return (
     <motion.span
       animate={{
-        color: flash === 'up' ? '#16a34a' : flash === 'down' ? '#dc2626' : '#111827',
+        color: flash === 'up' ? getVar('--color-gain') : flash === 'down' ? getVar('--color-loss') : getVar('--color-text'),
       }}
       transition={{ duration: 0.6 }}
       className={`font-bold tabular-nums ${className}`}

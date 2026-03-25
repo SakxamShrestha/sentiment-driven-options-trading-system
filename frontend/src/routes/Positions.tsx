@@ -17,7 +17,11 @@ export default function Positions() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 10_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (loading) return <div className="flex justify-center py-20"><Spinner className="w-5 h-5" /></div>;
 
@@ -27,7 +31,7 @@ export default function Positions() {
         <h1 className="text-lg font-bold">Positions</h1>
         <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-colors font-mono font-semibold">Refresh</button>
       </div>
-      <div className="card-elevated overflow-hidden pt-1">
+      <div className="terminal-card overflow-hidden pt-1">
         <VirtualTable
           data={positions}
           emptyMessage="No open positions"
@@ -35,7 +39,7 @@ export default function Positions() {
           columns={[
             { header: 'Symbol', accessor: (p) => <span className="font-bold font-mono text-accent">{p.symbol}</span> },
             { header: 'Qty', accessor: (p) => <span className="font-mono">{p.qty}</span> },
-            { header: 'Side', accessor: (p) => <span className={`font-semibold text-xs uppercase px-1.5 py-0.5 rounded-md ${p.side === 'long' ? 'text-gain bg-gain-soft' : 'text-loss bg-loss-soft'}`}>{p.side}</span> },
+            { header: 'Side', accessor: (p) => <span className={`font-semibold text-xs uppercase px-1.5 py-0.5 rounded-sm font-mono ${p.side === 'long' ? 'text-gain bg-gain-soft' : 'text-loss bg-loss-soft'}`}>{p.side}</span> },
             { header: 'Avg Entry', accessor: (p) => <span className="font-mono">{fmt(p.avg_entry_price)}</span> },
             { header: 'Current', accessor: (p) => <span className="font-mono">{fmt(p.current_price)}</span> },
             { header: 'Mkt Value', accessor: (p) => <span className="font-mono">{fmt(p.market_value)}</span> },

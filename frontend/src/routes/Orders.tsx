@@ -38,13 +38,13 @@ export default function Orders() {
         <h1 className="text-lg font-bold">Orders</h1>
         <div className="flex gap-2 items-center">
           <select value={status} onChange={(e) => setStatus(e.target.value)}
-            className="text-xs px-2.5 py-1.5 border border-border rounded-xl bg-bg outline-none focus:border-muted transition-all duration-200 font-mono">
+            className="text-xs px-2.5 py-1.5 border border-border rounded-sm bg-bg outline-none focus:border-accent transition-colors duration-150 font-mono">
             <option value="all">All</option><option value="open">Open</option><option value="closed">Closed</option>
           </select>
           <button onClick={load} className="text-xs text-accent hover:text-accent-muted transition-all duration-200 font-mono font-semibold">Refresh</button>
         </div>
       </div>
-      <div className="card-elevated overflow-hidden pt-1">
+      <div className="terminal-card overflow-hidden pt-1">
         <VirtualTable
           data={orders}
           emptyMessage="No orders found"
@@ -55,13 +55,13 @@ export default function Orders() {
             { header: 'Type', accessor: (o) => <span className="font-mono text-xs">{o.type}</span> },
             { header: 'Qty', accessor: (o) => <span className="font-mono">{o.filled_qty || 0}/{o.qty || o.notional || '–'}</span> },
             { header: 'Status', accessor: (o) => (
-              <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-info-bg text-blue'}`}>{o.status}</span>
+              <span className={`px-1.5 py-0.5 rounded-sm text-[11px] font-mono font-medium ${o.status === 'filled' ? 'bg-gain-soft text-gain' : o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-hover text-muted'}`}>{o.status}</span>
             )},
             { header: 'Submitted', accessor: (o) => <span className="text-xs text-muted font-mono">{fmtDate(o.submitted_at)}</span> },
             { header: 'Filled', accessor: (o) => <span className="text-xs text-muted font-mono">{o.filled_at ? fmtDate(o.filled_at) : '–'}</span> },
             { header: '', accessor: (o) => ['new', 'accepted', 'pending_new'].includes(o.status) ? (
               <button onClick={(e) => { e.stopPropagation(); cancel(o.id); }}
-                className="text-[11px] border border-border px-2 py-0.5 rounded-xl text-loss hover:border-loss transition-all duration-200">Cancel</button>
+                className="text-[11px] border border-border px-2 py-0.5 rounded-sm font-mono text-loss hover:border-loss transition-colors duration-150">Cancel</button>
             ) : null },
           ]}
         />

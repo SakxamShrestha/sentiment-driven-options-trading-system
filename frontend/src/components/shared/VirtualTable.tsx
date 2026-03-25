@@ -34,7 +34,7 @@ export function VirtualTable<T>({
 
   return (
     <div>
-      <div className="grid text-xs font-semibold text-muted uppercase tracking-wide border-b border-border"
+      <div className="grid text-[10px] font-mono font-semibold text-muted uppercase tracking-widest border-b border-border"
         style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
         {columns.map((c, i) => (
           <div key={i} className={`px-4 py-3 ${c.className ?? ''}`}>{c.header}</div>

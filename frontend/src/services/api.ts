@@ -1,6 +1,6 @@
 import type {
   Account, Position, Order, Activity, Snapshot, Quote,
-  Bar, SentimentResult, LunarCrushBuzz, BacktestResult, PortfolioPoint,
+  Bar, SentimentResult, LunarCrushBuzz, PortfolioPoint,
 } from '../types';
 
 const BASE = '';
@@ -68,9 +68,4 @@ export const api = {
     post<{ tripped: boolean; ok: boolean }>('/api/circuit-breaker', { tripped }),
   getLunarCrush: (symbol: string) =>
     get<LunarCrushBuzz>(`/api/lunarcrush/${encodeURIComponent(symbol)}`),
-
-  runBacktest: (symbol: string, period: string, threshold: number, notional: number) =>
-    get<BacktestResult>(
-      `/api/alpaca/backtest/${symbol}?period=${period}&threshold=${threshold}&notional=${notional}`
-    ),
 };

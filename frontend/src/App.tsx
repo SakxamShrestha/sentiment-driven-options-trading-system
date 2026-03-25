@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Navbar } from './components/layout/Sidebar';
+import { Sidebar } from './components/layout/Sidebar';
 import { RightPanel } from './components/layout/RightPanel';
+import { TopSearchBar } from './components/layout/TopSearchBar';
 import { Toast } from './components/shared/Toast';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -18,7 +19,6 @@ import Orders from './routes/Orders';
 import Activities from './routes/Activities';
 import Balances from './routes/Balances';
 import Sentiment from './routes/Sentiment';
-import Backtest from './routes/Backtest';
 import Learn from './routes/Learn';
 import Profile from './routes/Profile';
 import NotificationsPage from './routes/Notifications';
@@ -49,39 +49,36 @@ function DashboardLayout() {
   useWebSocket();
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <Navbar />
-      {showRight && (
-        <div className="bg-gradient-to-r from-accent/5 via-accent/8 to-accent/5 border-b border-accent/10 px-5 py-2 text-xs text-accent flex items-center gap-2 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse shrink-0" />
-          Paper Trading Mode — no real money is being used.
+    <div className="flex h-screen overflow-hidden bg-bg">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopSearchBar />
+        {showRight && (
+          <div className="bg-card border-b border-border px-4 py-1.5 text-[11px] font-mono text-muted flex items-center gap-2 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-gain animate-pulse shrink-0" />
+            Paper Trading Mode — no real money is being used.
+          </div>
+        )}
+        <div className="flex-1 flex min-w-0 overflow-hidden">
+          <main className="flex-1 overflow-y-auto px-8 py-8 md:px-10 min-w-0 scrollbar-thin">
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route path="/"              element={<PageTransition><Home /></PageTransition>} />
+                <Route path="/stock/:symbol" element={<PageTransition><StockDetail /></PageTransition>} />
+                <Route path="/positions"     element={<PageTransition><Positions /></PageTransition>} />
+                <Route path="/orders"        element={<PageTransition><Orders /></PageTransition>} />
+                <Route path="/activities"    element={<PageTransition><Activities /></PageTransition>} />
+                <Route path="/balances"      element={<PageTransition><Balances /></PageTransition>} />
+                <Route path="/sentiment"     element={<PageTransition><Sentiment /></PageTransition>} />
+                <Route path="/learn"         element={<PageTransition><Learn /></PageTransition>} />
+                <Route path="/profile"       element={<PageTransition><Profile /></PageTransition>} />
+                <Route path="/notifications" element={<PageTransition><NotificationsPage /></PageTransition>} />
+                <Route path="*"              element={<Navigate to="/" replace />} />
+              </Routes>
+            </AnimatePresence>
+          </main>
+          {showRight && <RightPanel />}
         </div>
-      )}
-      <div className="flex-1 overflow-hidden flex">
-        <div
-          className="flex-1 overflow-y-auto p-4 md:p-6 min-w-0 flex flex-col items-center"
-          style={showRight ? {
-            background: 'radial-gradient(ellipse 70% 55% at 15% 10%, rgba(56,97,251,0.07) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 85% 90%, rgba(107,138,253,0.05) 0%, transparent 55%)',
-          } : undefined}
-        >
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/"              element={<PageTransition><Home /></PageTransition>} />
-              <Route path="/stock/:symbol" element={<PageTransition><StockDetail /></PageTransition>} />
-              <Route path="/positions"     element={<PageTransition><Positions /></PageTransition>} />
-              <Route path="/orders"        element={<PageTransition><Orders /></PageTransition>} />
-              <Route path="/activities"    element={<PageTransition><Activities /></PageTransition>} />
-              <Route path="/balances"      element={<PageTransition><Balances /></PageTransition>} />
-              <Route path="/sentiment"     element={<PageTransition><Sentiment /></PageTransition>} />
-              <Route path="/backtest"      element={<PageTransition><Backtest /></PageTransition>} />
-              <Route path="/learn"         element={<PageTransition><Learn /></PageTransition>} />
-              <Route path="/profile"       element={<PageTransition><Profile /></PageTransition>} />
-              <Route path="/notifications" element={<PageTransition><NotificationsPage /></PageTransition>} />
-              <Route path="*"              element={<Navigate to="/" replace />} />
-            </Routes>
-          </AnimatePresence>
-        </div>
-        {showRight && <RightPanel />}
       </div>
       <Toast />
     </div>

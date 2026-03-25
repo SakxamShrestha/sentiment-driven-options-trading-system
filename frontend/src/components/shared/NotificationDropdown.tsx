@@ -55,8 +55,8 @@ export function NotificationDropdown() {
       <button
         onClick={toggle}
         aria-label="Notifications"
-        className={`relative p-2 rounded-lg transition-all duration-200 ${
-          open ? 'bg-active-bg text-accent' : 'text-muted hover:bg-hover hover:text-text'
+        className={`relative p-2 rounded-sm transition-all duration-200 ${
+          open ? 'bg-accent/10 text-accent' : 'text-muted hover:bg-hover hover:text-text'
         }`}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -67,7 +67,7 @@ export function NotificationDropdown() {
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none px-0.5"
+            className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-accent text-bg text-[9px] font-mono font-bold rounded-sm flex items-center justify-center leading-none px-0.5"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
@@ -81,7 +81,7 @@ export function NotificationDropdown() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12 }}
-            className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-card border border-border rounded-xl shadow-xl z-[400] overflow-hidden"
+            className="absolute bottom-full left-full ml-2 mb-1 w-[320px] bg-card border border-border rounded-sm shadow-xl z-[400] overflow-hidden"
           >
             <div className="px-4 py-3 border-b border-border flex justify-between items-center">
               <span className="text-sm font-semibold">Notifications</span>
@@ -99,13 +99,13 @@ export function NotificationDropdown() {
                 {notifications.slice(0, 4).map((n: Notification) => (
                   <div
                     key={n.id}
-                    className={`flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-hover transition-colors cursor-pointer ${n.read === 0 ? 'bg-info-bg' : ''}`}
+                    className={`flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-hover transition-colors cursor-pointer ${n.read === 0 ? 'bg-hover' : ''}`}
                     onClick={() => {
                       setOpen(false);
                       if (n.symbol) navigate(`/stock/${n.symbol}`);
                     }}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 mt-0.5 ${
                       n.side === 'buy' ? 'bg-gain-soft text-gain' : n.side === 'sell' ? 'bg-loss-soft text-loss' : 'bg-hover text-muted'
                     }`}>
                       {n.side === 'buy' ? (

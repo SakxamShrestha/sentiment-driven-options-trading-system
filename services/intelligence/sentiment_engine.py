@@ -28,11 +28,13 @@ class SentimentEngine:
                 self._finbert_pipeline = pipeline(
                     "sentiment-analysis",
                     model="ProsusAI/finbert",
+                    framework="pt",   # force PyTorch — avoids TF/Keras crash on Apple Silicon
                     truncation=True,
                     max_length=512,
                 )
-            except Exception as e:
+            except BaseException as e:
                 logger.warning("FinBERT load failed: %s", e)
+                self.use_finbert = False  # don't retry on every request
         return self._finbert_pipeline
 
     def score_finbert(self, text: str) -> Optional[Dict[str, Any]]:

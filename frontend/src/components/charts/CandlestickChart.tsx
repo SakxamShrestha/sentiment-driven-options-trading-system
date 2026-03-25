@@ -12,18 +12,18 @@ interface Props {
 
 const chartTheme = {
   dark: {
-    background: '#131b2e',
-    text: '#5a6680',
-    grid: '#1a2440',
-    border: '#1e2848',
-    upColor: '#4ade80',
-    downColor: '#f87171',
+    background: '#18181b',
+    text: '#71717a',
+    grid: '#27272a',
+    border: '#3f3f46',
+    upColor: '#22c55e',
+    downColor: '#ef4444',
   },
   light: {
     background: '#ffffff',
-    text: '#5e6a99',
-    grid: '#ebeeff',
-    border: '#dde2f4',
+    text: '#a1a1aa',
+    grid: '#f4f4f5',
+    border: '#e4e4e7',
     upColor: '#16a34a',
     downColor: '#dc2626',
   },

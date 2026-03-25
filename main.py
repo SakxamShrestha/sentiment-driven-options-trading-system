@@ -4,6 +4,8 @@ Real-time sentiment-driven analysis for automated (paper) trading.
 """
 
 import os
+os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")  # Keras 3 → tf-keras compat for transformers because Apple silicon issue it cannot use any other Keras version
+
 from flask import Flask, send_from_directory
 from flask_socketio import SocketIO
 
@@ -33,11 +35,8 @@ socketio = SocketIO(
 
 @app.route("/")
 def index():
-    """Serve the React SPA (built) or fall back to legacy dashboard."""
-    dist = os.path.join(app.static_folder, "dist", "index.html")
-    if os.path.exists(dist):
-        return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
-    return send_from_directory(app.static_folder, "dashboard.html")
+    """Serve the React SPA."""
+    return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
 
 
 @app.route("/assets/<path:filename>")
@@ -53,10 +52,7 @@ def catch_all(path):
     if path.startswith("api/") or path.startswith("static/") or path.startswith("socket.io"):
         from flask import abort
         abort(404)
-    dist = os.path.join(app.static_folder, "dist", "index.html")
-    if os.path.exists(dist):
-        return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
-    return send_from_directory(app.static_folder, "dashboard.html")
+    return send_from_directory(os.path.join(app.static_folder, "dist"), "index.html")
 
 
 @app.route("/api/status")

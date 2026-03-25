@@ -14,7 +14,7 @@ const styles = {
 
 export const Badge = React.memo(function Badge({ children, variant, className = '' }: BadgeProps) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold ${styles[variant]} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold font-mono ${styles[variant]} ${className}`}>
       {children}
     </span>
   );

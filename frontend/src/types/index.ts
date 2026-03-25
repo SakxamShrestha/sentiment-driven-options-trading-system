@@ -114,33 +114,6 @@ export interface LunarCrushBuzz {
   };
 }
 
-export interface BacktestTrade {
-  symbol: string;
-  entry_time: string;
-  exit_time: string;
-  shares: number;
-  entry_price: number;
-  exit_price: number;
-  pnl: number;
-  pnl_pct: number;
-  bars_held: number;
-  exit_reason: string;
-}
-
-export interface BacktestResult {
-  symbol: string;
-  period: string;
-  bars_count: number;
-  trades: BacktestTrade[];
-  trade_count: number;
-  total_return_pct: number;
-  win_rate: number;
-  max_drawdown_pct: number;
-  final_equity: number;
-  starting_equity: number;
-  error?: string;
-}
-
 export interface PortfolioPoint {
   t: number;
   v: number;

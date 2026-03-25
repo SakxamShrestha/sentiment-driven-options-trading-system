@@ -112,7 +112,7 @@ export function RightPanel() {
   }, [positions, loadSparks]);
 
   return (
-    <div className="hidden xl:flex w-[280px] shrink-0 bg-card/50 backdrop-blur-sm border-l border-border flex-col overflow-y-auto">
+    <div className="hidden lg:flex w-[256px] shrink-0 bg-card border-l border-border flex-col overflow-y-auto scrollbar-thin">
       {loading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : positions.length === 0 ? (

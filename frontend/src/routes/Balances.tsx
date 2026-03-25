@@ -26,7 +26,7 @@ export default function Balances() {
       <h1 className="text-lg font-bold mb-5">Balances</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FIELDS.map(([label, key]) => (
-          <div key={key} className="card-elevated p-5">
+          <div key={key} className="terminal-card p-5">
             <div className="text-xs text-muted mb-1">{label}</div>
             <div className="text-base font-semibold font-mono">{fmt(account[key])}</div>
           </div>
