@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import QuizModal from '../components/learn/QuizModal';
-import { QUIZ_DATA } from '../data/quizzes';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
+import type { LearnQuestion } from '../types';
 
 // ─── Glossary Data — add your terms here ──────────────────────────────────────
 // Each entry: { term, definition, emoji }
@@ -569,7 +570,11 @@ const LESSONS: {
 ];
 
 // ─── Library Lesson Card ───────────────────────────────────────────────────────
-function LibraryLessonCard({ lesson, onStartQuiz }: { lesson: typeof LESSONS[0]; onStartQuiz?: () => void }) {
+function LibraryLessonCard({ lesson, onStartQuiz, completed }: {
+  lesson: typeof LESSONS[0];
+  onStartQuiz?: () => void;
+  completed?: boolean;
+}) {
   const { hovered, onMouseEnter, onMouseLeave } = useHover();
   return (
     <div
@@ -583,10 +588,11 @@ function LibraryLessonCard({ lesson, onStartQuiz }: { lesson: typeof LESSONS[0];
         padding: '14px 16px',
         borderRadius: 16,
         background: hovered ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.025)',
-        border: `1px solid ${hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.07)'}`,
+        border: `1px solid ${completed ? 'rgba(34,197,94,0.35)' : hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.07)'}`,
         cursor: 'pointer',
         transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+        position: 'relative',
       }}
     >
       <div style={{
@@ -603,7 +609,7 @@ function LibraryLessonCard({ lesson, onStartQuiz }: { lesson: typeof LESSONS[0];
       }}>
         {lesson.emoji}
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{
           fontSize: 13,
           fontWeight: 700,
@@ -624,12 +630,20 @@ function LibraryLessonCard({ lesson, onStartQuiz }: { lesson: typeof LESSONS[0];
           {lesson.duration} · {lesson.quizzes} quiz questions
         </div>
       </div>
+      {completed && (
+        <div style={{
+          width: 20, height: 20, borderRadius: '50%',
+          background: 'rgba(34,197,94,0.2)', border: '1.5px solid #22c55e',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, color: '#22c55e', flexShrink: 0,
+        }}>✓</div>
+      )}
     </div>
   );
 }
 
 // ─── Lesson Library Panel ─────────────────────────────────────────────────────
-function LessonLibraryPanel({ onClose, onOpenDict, onStartQuiz }: { onClose: () => void; onOpenDict: () => void; onStartQuiz: (id: number, title: string, emoji: string, iconBg: string) => void }) {
+function LessonLibraryPanel({ onClose, onOpenDict, onStartQuiz, completedLessons }: { onClose: () => void; onOpenDict: () => void; onStartQuiz: (id: number, title: string, emoji: string, iconBg: string) => void; completedLessons?: Set<number> }) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -841,6 +855,7 @@ function LessonLibraryPanel({ onClose, onOpenDict, onStartQuiz }: { onClose: () 
                       <LibraryLessonCard
                         key={lesson.id}
                         lesson={lesson}
+                        completed={completedLessons?.has(lesson.id)}
                         onStartQuiz={() => onStartQuiz(lesson.id, lesson.title, lesson.emoji, lesson.iconBg)}
                       />
                     ))}
@@ -1185,16 +1200,42 @@ export default function Learn() {
   const [dictOpen, setDictOpen] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
   const [quizLesson, setQuizLesson] = useState<{ id: number; title: string; emoji: string; iconBg: string } | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState<LearnQuestion[]>([]);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [completedLessons, setCompletedLessons] = useState<Set<number>>(new Set());
   const [tip, setTip] = useState<{ quote: string; author: string } | null>(null);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     api.getDailyTip().then(setTip).catch(() => {});
   }, []);
 
-  function handleStartQuiz(id: number, title: string, emoji: string, iconBg: string) {
+  // Load user progress on mount so lesson cards show completion badges
+  useEffect(() => {
+    if (!user?.uid) return;
+    api.getLearnProgress(user.uid)
+      .then(progress => setCompletedLessons(new Set(progress.map(p => p.lesson_id))))
+      .catch(() => {});
+  }, [user?.uid]);
+
+  const handleStartQuiz = useCallback(async (id: number, title: string, emoji: string, iconBg: string) => {
     setQuizLesson({ id, title, emoji, iconBg });
+    setQuizLoading(true);
     setLibOpen(false);
-  }
+    try {
+      const questions = await api.getLearnQuestions(id);
+      setQuizQuestions(questions);
+    } catch {
+      setQuizQuestions([]);
+    }
+    setQuizLoading(false);
+  }, []);
+
+  const handleQuizComplete = useCallback((score: number, total: number) => {
+    if (!user?.uid || !quizLesson) return;
+    api.saveLearnProgress(user.uid, quizLesson.id, score, total).catch(() => {});
+    setCompletedLessons(prev => new Set([...prev, quizLesson.id]));
+  }, [user?.uid, quizLesson]);
 
   return (
     <>
@@ -1207,17 +1248,19 @@ export default function Learn() {
           onClose={() => setLibOpen(false)}
           onOpenDict={() => setDictOpen(true)}
           onStartQuiz={handleStartQuiz}
+          completedLessons={completedLessons}
         />
       )}
       {dictOpen && <DictionaryPanel onClose={() => setDictOpen(false)} />}
-      {quizLesson && QUIZ_DATA[quizLesson.id] && (
+      {quizLesson && !quizLoading && quizQuestions.length > 0 && (
         <QuizModal
           lessonId={quizLesson.id}
           lessonTitle={quizLesson.title}
           lessonEmoji={quizLesson.emoji}
           iconBg={quizLesson.iconBg}
-          questions={QUIZ_DATA[quizLesson.id]}
-          onClose={() => setQuizLesson(null)}
+          questions={quizQuestions}
+          onClose={() => { setQuizLesson(null); setQuizQuestions([]); }}
+          onComplete={handleQuizComplete}
         />
       )}
 

@@ -84,6 +84,37 @@ class SQLiteRepository:
                 CREATE INDEX IF NOT EXISTS idx_sentiment_created ON sentiment_metadata(created_at);
                 CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at);
                 CREATE INDEX IF NOT EXISTS idx_notif_created ON notifications(created_at);
+
+                CREATE TABLE IF NOT EXISTS learn_lessons (
+                    id          INTEGER PRIMARY KEY,
+                    title       TEXT NOT NULL,
+                    emoji       TEXT NOT NULL,
+                    icon_bg     TEXT NOT NULL,
+                    duration    TEXT NOT NULL,
+                    quiz_count  INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS learn_quiz_questions (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    lesson_id     INTEGER NOT NULL REFERENCES learn_lessons(id),
+                    question_order INTEGER NOT NULL,
+                    question      TEXT NOT NULL,
+                    options       TEXT NOT NULL,
+                    correct_index INTEGER NOT NULL,
+                    explanation   TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_quiz_lesson ON learn_quiz_questions(lesson_id);
+
+                CREATE TABLE IF NOT EXISTS learn_user_progress (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      TEXT NOT NULL,
+                    lesson_id    INTEGER NOT NULL,
+                    score        INTEGER NOT NULL,
+                    total        INTEGER NOT NULL,
+                    completed_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_progress_user ON learn_user_progress(user_id);
+                CREATE INDEX IF NOT EXISTS idx_progress_lesson ON learn_user_progress(user_id, lesson_id);
             """)
         logger.info("SQLite schema initialized at %s", self.db_path)
 
@@ -232,3 +263,99 @@ class SQLiteRepository:
         with self._connection() as conn:
             cur = conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
             return cur.rowcount
+
+    # ── Learn platform ─────────────────────────────────────────────────────────
+
+    def seed_learn_content(self, lessons: list, questions: dict) -> None:
+        """
+        Populate learn_lessons and learn_quiz_questions.
+        lessons: list of dicts with keys id, title, emoji, icon_bg, duration, quiz_count
+        questions: dict mapping lesson_id (int) → list of question dicts
+        Skips lessons/questions that already exist (idempotent).
+        """
+        import json as _json
+        with self._connection() as conn:
+            for lesson in lessons:
+                conn.execute(
+                    """INSERT OR IGNORE INTO learn_lessons
+                       (id, title, emoji, icon_bg, duration, quiz_count)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (lesson["id"], lesson["title"], lesson["emoji"],
+                     lesson["icon_bg"], lesson["duration"], lesson["quiz_count"]),
+                )
+            for lesson_id, qs in questions.items():
+                existing = conn.execute(
+                    "SELECT COUNT(*) FROM learn_quiz_questions WHERE lesson_id = ?",
+                    (lesson_id,),
+                ).fetchone()[0]
+                if existing:
+                    continue  # already seeded
+                for q in qs:
+                    conn.execute(
+                        """INSERT INTO learn_quiz_questions
+                           (lesson_id, question_order, question, options, correct_index, explanation)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (lesson_id, q["id"], q["question"],
+                         _json.dumps(q["options"]), q["correctIndex"], q["explanation"]),
+                    )
+        logger.info("Learn content seeded: %d lessons, %d question sets",
+                    len(lessons), len(questions))
+
+    def get_lessons(self) -> List[Dict[str, Any]]:
+        """Return all lessons ordered by id."""
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM learn_lessons ORDER BY id"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_quiz_questions(self, lesson_id: int) -> List[Dict[str, Any]]:
+        """Return questions for a lesson ordered by question_order."""
+        import json as _json
+        with self._connection() as conn:
+            rows = conn.execute(
+                """SELECT id, lesson_id, question_order, question,
+                          options, correct_index, explanation
+                   FROM learn_quiz_questions
+                   WHERE lesson_id = ?
+                   ORDER BY question_order""",
+                (lesson_id,),
+            ).fetchall()
+            result = []
+            for r in rows:
+                d = dict(r)
+                d["options"] = _json.loads(d["options"])
+                result.append(d)
+            return result
+
+    def save_progress(self, user_id: str, lesson_id: int, score: int, total: int) -> int:
+        """Record a quiz attempt. Returns row id."""
+        from datetime import datetime
+        with self._connection() as conn:
+            cur = conn.execute(
+                """INSERT INTO learn_user_progress
+                   (user_id, lesson_id, score, total, completed_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (user_id, lesson_id, score, total, datetime.utcnow().isoformat()),
+            )
+            return cur.lastrowid
+
+    def get_user_progress(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Return latest attempt per lesson for a user.
+        Each row: { lesson_id, score, total, completed_at, best_score, attempts }
+        """
+        with self._connection() as conn:
+            rows = conn.execute(
+                """SELECT
+                       lesson_id,
+                       MAX(score) AS best_score,
+                       total,
+                       COUNT(*) AS attempts,
+                       MAX(completed_at) AS completed_at
+                   FROM learn_user_progress
+                   WHERE user_id = ?
+                   GROUP BY lesson_id""",
+                (user_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]

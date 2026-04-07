@@ -120,6 +120,36 @@ export interface PortfolioPoint {
   pct: number;
 }
 
+export interface LearnLesson {
+  id: number;
+  title: string;
+  emoji: string;
+  icon_bg: string;
+  duration: string;
+  quiz_count: number;
+  completed?: boolean;
+  best_score?: number | null;
+  attempts?: number;
+}
+
+export interface LearnQuestion {
+  id: number;
+  lesson_id: number;
+  question_order: number;
+  question: string;
+  options: [string, string, string, string];
+  correct_index: number;
+  explanation: string;
+}
+
+export interface LearnProgress {
+  lesson_id: number;
+  best_score: number;
+  total: number;
+  attempts: number;
+  completed_at: string;
+}
+
 export interface PriceUpdate {
   symbol: string;
   price: number;

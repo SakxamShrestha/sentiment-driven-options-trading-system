@@ -1,6 +1,7 @@
 import type {
   Account, Position, Order, Activity, Snapshot, Quote,
   Bar, SentimentResult, LunarCrushBuzz, PortfolioPoint,
+  LearnLesson, LearnQuestion, LearnProgress,
 } from '../types';
 
 const BASE = '';
@@ -70,4 +71,14 @@ export const api = {
     get<LunarCrushBuzz>(`/api/lunarcrush/${encodeURIComponent(symbol)}`),
   getDailyTip: () =>
     get<{ quote: string; author: string }>('/api/learn/tip'),
+
+  // Learn platform
+  getLearnLessons: (userId?: string) =>
+    get<LearnLesson[]>(`/api/learn/lessons${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`),
+  getLearnQuestions: (lessonId: number) =>
+    get<LearnQuestion[]>(`/api/learn/lessons/${lessonId}/questions`),
+  saveLearnProgress: (userId: string, lessonId: number, score: number, total: number) =>
+    post<{ ok: boolean; id: number }>('/api/learn/progress', { user_id: userId, lesson_id: lessonId, score, total }),
+  getLearnProgress: (userId: string) =>
+    get<LearnProgress[]>(`/api/learn/progress/${encodeURIComponent(userId)}`),
 };

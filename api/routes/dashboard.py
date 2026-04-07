@@ -296,6 +296,64 @@ def sentiment_by_ticker_llama():
                     "articles": articles, "model": "llama3"})
 
 
+# ── Learn platform ─────────────────────────────────────────────
+
+@dashboard_bp.route("/learn/lessons", methods=["GET"])
+def learn_lessons():
+    """All lessons. Pass ?user_id=<uid> to include completion data."""
+    user_id = request.args.get("user_id", "").strip()
+    repo = get_repo()
+    lessons = repo.get_lessons()
+    if user_id:
+        progress = {p["lesson_id"]: p for p in repo.get_user_progress(user_id)}
+        for lesson in lessons:
+            p = progress.get(lesson["id"])
+            lesson["completed"]  = p is not None
+            lesson["best_score"] = p["best_score"] if p else None
+            lesson["attempts"]   = p["attempts"]   if p else 0
+    return jsonify(lessons)
+
+
+@dashboard_bp.route("/learn/lessons/<int:lesson_id>/questions", methods=["GET"])
+def learn_questions(lesson_id: int):
+    """Quiz questions for a lesson."""
+    questions = get_repo().get_quiz_questions(lesson_id)
+    if not questions:
+        return jsonify({"error": "Lesson not found or has no questions"}), 404
+    return jsonify(questions)
+
+
+@dashboard_bp.route("/learn/progress", methods=["POST"])
+def save_learn_progress():
+    """
+    Record a quiz attempt.
+    Body: { user_id, lesson_id, score, total }
+    """
+    body = request.get_json(silent=True) or {}
+    user_id   = str(body.get("user_id",   "")).strip()
+    lesson_id = body.get("lesson_id")
+    score     = body.get("score")
+    total     = body.get("total")
+
+    if not user_id or lesson_id is None or score is None or total is None:
+        return jsonify({"error": "user_id, lesson_id, score, and total are required"}), 400
+
+    row_id = get_repo().save_progress(
+        user_id=user_id,
+        lesson_id=int(lesson_id),
+        score=int(score),
+        total=int(total),
+    )
+    return jsonify({"ok": True, "id": row_id}), 201
+
+
+@dashboard_bp.route("/learn/progress/<user_id>", methods=["GET"])
+def get_learn_progress(user_id: str):
+    """All lesson completions for a user (best score per lesson)."""
+    progress = get_repo().get_user_progress(user_id.strip())
+    return jsonify(progress)
+
+
 # ── Learn: Tip of the Day ──────────────────────────────────────
 
 _FALLBACK_TIP = {
@@ -342,7 +400,7 @@ def daily_tip():
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "llama3-8b-8192",
+                    "model": "llama-3.1-8b-instant",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.9,
                     "max_tokens": 128,
