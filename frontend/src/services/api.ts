@@ -68,4 +68,6 @@ export const api = {
     post<{ tripped: boolean; ok: boolean }>('/api/circuit-breaker', { tripped }),
   getLunarCrush: (symbol: string) =>
     get<LunarCrushBuzz>(`/api/lunarcrush/${encodeURIComponent(symbol)}`),
+  getDailyTip: () =>
+    get<{ quote: string; author: string }>('/api/learn/tip'),
 };

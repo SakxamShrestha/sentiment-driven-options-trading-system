@@ -296,6 +296,78 @@ def sentiment_by_ticker_llama():
                     "articles": articles, "model": "llama3"})
 
 
+# ── Learn: Tip of the Day ──────────────────────────────────────
+
+_FALLBACK_TIP = {
+    "quote": "The stock market is a device for transferring money from the impatient to the patient.",
+    "author": "Warren Buffett",
+}
+
+
+@dashboard_bp.route("/learn/tip", methods=["GET"])
+def daily_tip():
+    """
+    Return today's investing tip of the day (UTC date).
+    Checks Redis first; generates via Groq (Llama 3) on cache miss.
+    TTL: 25 hours — one generation per calendar day.
+    """
+    from datetime import datetime, timezone
+    import json, re, requests as req
+    from config.settings import settings
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    redis = get_redis()
+
+    cached = redis.get_daily_tip(today)
+    if cached:
+        return jsonify(cached)
+
+    # Cache miss — generate via Groq
+    tip = None
+    if settings.GROQ_API_KEY:
+        try:
+            prompt = (
+                "You are a knowledgeable investing educator. Generate a single, memorable, "
+                "insightful quote or tip about investing, trading, or personal finance. "
+                "It must be genuinely useful — not generic. It can be from a famous investor, "
+                "economist, or trader, OR an original tip. "
+                "Reply with ONLY a JSON object — no markdown, no extra text — in this exact shape:\n"
+                '{"quote": "...", "author": "..."}\n'
+                "If it is an original tip, set author to \"TradeSent.AI\"."
+            )
+            r = req.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama3-8b-8192",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.9,
+                    "max_tokens": 128,
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"].strip()
+            match = re.search(r'\{.*?\}', content, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                quote = str(parsed.get("quote", "")).strip()
+                author = str(parsed.get("author", "")).strip()
+                if quote and author:
+                    tip = {"quote": quote, "author": author}
+        except Exception:
+            pass  # fall through to fallback
+
+    if tip is None:
+        tip = _FALLBACK_TIP
+
+    redis.set_daily_tip(today, tip)
+    return jsonify(tip)
+
+
 # ── Notifications ──────────────────────────────────────────────
 
 @dashboard_bp.route("/notifications", methods=["GET"])

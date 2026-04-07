@@ -1,5 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import QuizModal from '../components/learn/QuizModal';
+import { QUIZ_DATA } from '../data/quizzes';
+import { api } from '../services/api';
 
 // ─── Glossary Data — add your terms here ──────────────────────────────────────
 // Each entry: { term, definition, emoji }
@@ -566,12 +569,13 @@ const LESSONS: {
 ];
 
 // ─── Library Lesson Card ───────────────────────────────────────────────────────
-function LibraryLessonCard({ lesson }: { lesson: typeof LESSONS[0] }) {
+function LibraryLessonCard({ lesson, onStartQuiz }: { lesson: typeof LESSONS[0]; onStartQuiz?: () => void }) {
   const { hovered, onMouseEnter, onMouseLeave } = useHover();
   return (
     <div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onClick={onStartQuiz}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -625,7 +629,7 @@ function LibraryLessonCard({ lesson }: { lesson: typeof LESSONS[0] }) {
 }
 
 // ─── Lesson Library Panel ─────────────────────────────────────────────────────
-function LessonLibraryPanel({ onClose, onOpenDict }: { onClose: () => void; onOpenDict: () => void }) {
+function LessonLibraryPanel({ onClose, onOpenDict, onStartQuiz }: { onClose: () => void; onOpenDict: () => void; onStartQuiz: (id: number, title: string, emoji: string, iconBg: string) => void }) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -834,7 +838,11 @@ function LessonLibraryPanel({ onClose, onOpenDict }: { onClose: () => void; onOp
                     gap: 10,
                   }}>
                     {lessons.map(lesson => (
-                      <LibraryLessonCard key={lesson.id} lesson={lesson} />
+                      <LibraryLessonCard
+                        key={lesson.id}
+                        lesson={lesson}
+                        onStartQuiz={() => onStartQuiz(lesson.id, lesson.title, lesson.emoji, lesson.iconBg)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1110,13 +1118,14 @@ function EarnCard({ entity }: { entity: typeof EARN_ENTITIES[0] }) {
 }
 
 // ─── Lesson Card ──────────────────────────────────────────────────────────────
-function LessonCard({ lesson }: { lesson: typeof RECOMMENDED[0] }) {
+function LessonCard({ lesson, onStartQuiz }: { lesson: typeof RECOMMENDED[0]; onStartQuiz?: () => void }) {
   const { hovered, onMouseEnter, onMouseLeave } = useHover();
 
   return (
     <div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onClick={onStartQuiz}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -1175,6 +1184,17 @@ export default function Learn() {
   const earnPct = (earnProgress / 11) * 100;
   const [dictOpen, setDictOpen] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
+  const [quizLesson, setQuizLesson] = useState<{ id: number; title: string; emoji: string; iconBg: string } | null>(null);
+  const [tip, setTip] = useState<{ quote: string; author: string } | null>(null);
+
+  useEffect(() => {
+    api.getDailyTip().then(setTip).catch(() => {});
+  }, []);
+
+  function handleStartQuiz(id: number, title: string, emoji: string, iconBg: string) {
+    setQuizLesson({ id, title, emoji, iconBg });
+    setLibOpen(false);
+  }
 
   return (
     <>
@@ -1182,8 +1202,24 @@ export default function Learn() {
       <style>{`.learn-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
       {/* Overlays */}
-      {libOpen && <LessonLibraryPanel onClose={() => setLibOpen(false)} onOpenDict={() => setDictOpen(true)} />}
+      {libOpen && (
+        <LessonLibraryPanel
+          onClose={() => setLibOpen(false)}
+          onOpenDict={() => setDictOpen(true)}
+          onStartQuiz={handleStartQuiz}
+        />
+      )}
       {dictOpen && <DictionaryPanel onClose={() => setDictOpen(false)} />}
+      {quizLesson && QUIZ_DATA[quizLesson.id] && (
+        <QuizModal
+          lessonId={quizLesson.id}
+          lessonTitle={quizLesson.title}
+          lessonEmoji={quizLesson.emoji}
+          iconBg={quizLesson.iconBg}
+          questions={QUIZ_DATA[quizLesson.id]}
+          onClose={() => setQuizLesson(null)}
+        />
+      )}
 
       {/* Page header */}
       <div style={{
@@ -1392,7 +1428,13 @@ export default function Learn() {
               gridTemplateColumns: '1fr 1fr',
               gap: 12,
             }}>
-              {RECOMMENDED.map(lesson => <LessonCard key={lesson.id} lesson={lesson} />)}
+              {RECOMMENDED.map(lesson => (
+                <LessonCard
+                  key={lesson.id}
+                  lesson={lesson}
+                  onStartQuiz={() => handleStartQuiz(lesson.id, lesson.title, lesson.emoji, lesson.accentColor)}
+                />
+              ))}
             </div>
           </section>
         </div>
@@ -1580,8 +1622,12 @@ export default function Learn() {
               color: 'var(--color-muted)',
               margin: 0,
               fontStyle: 'italic',
+              opacity: tip ? 1 : 0.4,
+              transition: 'opacity 0.4s ease',
             }}>
-              "The stock market is a device for transferring money from the impatient to the patient."
+              "{tip
+                ? tip.quote
+                : 'Loading today\'s tip…'}"
             </p>
             <div style={{
               marginTop: 8,
@@ -1590,7 +1636,7 @@ export default function Learn() {
               color: 'var(--color-muted)',
               opacity: 0.6,
             }}>
-              — Warren Buffett
+              {tip ? `— ${tip.author}` : ''}
             </div>
           </div>
 

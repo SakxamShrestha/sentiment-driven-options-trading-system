@@ -93,6 +93,28 @@ class RedisState:
         except redis.RedisError as e:
             logger.warning("Redis circuit_breaker update failed: %s", e)
 
+    def get_daily_tip(self, date_str: str) -> Optional[dict]:
+        """Return cached tip for date_str (YYYY-MM-DD), or None if not yet generated."""
+        import json
+        try:
+            raw = self._get_client().get(f"tradesent:tip:{date_str}")
+            return json.loads(raw) if raw else None
+        except (redis.RedisError, TypeError, ValueError) as e:
+            logger.debug("Redis get_daily_tip: %s", e)
+            return None
+
+    def set_daily_tip(self, date_str: str, payload: dict) -> None:
+        """Cache tip for date_str with a 25-hour TTL (covers the full day + drift)."""
+        import json
+        try:
+            self._get_client().set(
+                f"tradesent:tip:{date_str}",
+                json.dumps(payload),
+                ex=90_000,  # 25 hours
+            )
+        except redis.RedisError as e:
+            logger.warning("Redis set_daily_tip failed: %s", e)
+
     def close(self) -> None:
         if self._client:
             try:
