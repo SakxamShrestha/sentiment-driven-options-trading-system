@@ -1,62 +1,206 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccountStore } from '../stores/useAccountStore';
 import { api } from '../services/api';
-import { fmt, plClass, plSign } from '../lib/formatters';
+import { fmt, plSign, plClass } from '../lib/formatters';
 import { STARTING_EQUITY, PORTFOLIO_PERIODS, type PortfolioPeriod } from '../lib/constants';
 import { PortfolioAreaChart } from '../components/charts/PortfolioAreaChart';
 import { AnimatedNumber } from '../components/shared/AnimatedNumber';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { Snapshot, SentimentArticle } from '../types';
 
-function IconWallet() {
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const MARKET_SYMBOLS = ['SPY', 'QQQ', 'AAPL'] as const;
+type MarketSym = (typeof MARKET_SYMBOLS)[number];
+
+const MARKET_LABELS: Record<MarketSym, string> = {
+  SPY:  'S&P 500',
+  QQQ:  'Nasdaq 100',
+  AAPL: 'Apple Inc.',
+};
+
+const NEWS_TICKERS = ['SPY', 'AAPL', 'TSLA', 'NVDA'] as const;
+type NewsTicker = (typeof NEWS_TICKERS)[number];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60)    return `${Math.floor(diff)}s`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function sentimentMeta(score: number | null | undefined) {
+  const s = score ?? 0;
+  if (s >= 0.2)  return { label: 'BULLISH', color: 'var(--color-gain)', bg: 'var(--color-gain-soft)' };
+  if (s <= -0.2) return { label: 'BEARISH', color: 'var(--color-loss)', bg: 'var(--color-loss-soft)' };
+  return           { label: 'NEUTRAL',  color: 'var(--color-muted)', bg: 'var(--color-hover)' };
+}
+
+// ── Market Ticker Cell ────────────────────────────────────────────────────────
+
+function MarketTicker({ symbol, snap }: { symbol: MarketSym; snap: Snapshot | undefined }) {
+  const label = MARKET_LABELS[symbol];
+  if (!snap || snap.error) {
+    return (
+      <div className="flex items-center gap-3 px-5 py-4 border-r border-border shrink-0 opacity-40">
+        <div>
+          <div className="text-[9px] font-mono text-muted tracking-[0.18em] uppercase mb-0.5">{label}</div>
+          <div className="text-[13px] font-bold font-mono tabular-nums">—</div>
+        </div>
+      </div>
+    );
+  }
+  const up = (snap.change_pct ?? 0) >= 0;
+  const pct = snap.change_pct;
+  const chg = snap.change;
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
-      <path d="M16 12h5" />
-      <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none" />
-    </svg>
+    <div className="flex items-center gap-3 px-5 py-4 border-r border-border shrink-0 cursor-default hover:bg-hover transition-colors duration-150">
+      <div>
+        <div className="text-[9px] font-mono text-muted tracking-[0.18em] uppercase mb-0.5">{label}</div>
+        <div className="text-[13px] font-bold font-mono tabular-nums">
+          {snap.price != null ? `$${snap.price.toFixed(2)}` : '—'}
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-0.5">
+        <span className={`text-[11px] font-mono font-semibold tabular-nums ${up ? 'text-gain' : 'text-loss'}`}>
+          {pct != null ? `${up ? '+' : ''}${pct.toFixed(2)}%` : '—'}
+        </span>
+        {chg != null && (
+          <span
+            className={`text-[10px] font-mono tabular-nums ${up ? 'text-gain' : 'text-loss'}`}
+            style={{ opacity: 0.65 }}
+          >
+            {chg >= 0 ? '+' : ''}{chg.toFixed(2)}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
-function IconBarChart() {
+// ── News Article Card ─────────────────────────────────────────────────────────
+
+interface NewsItem extends SentimentArticle {
+  ticker: NewsTicker;
+}
+
+function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
+  const s    = item.score ?? 0;
+  const sent = sentimentMeta(s);
+
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="20" x2="12" y2="10" />
-      <line x1="18" y1="20" x2="18" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="16" />
-    </svg>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, delay, ease: 'easeOut' }}
+      className="relative flex gap-4 px-6 py-5 border-b border-border last:border-0 cursor-pointer group transition-colors duration-150"
+      onClick={() => item.url && window.open(item.url, '_blank')}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-hover)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
+    >
+      {/* Sentiment left border */}
+      <div
+        className="absolute left-0 top-4 bottom-4 w-[3px]"
+        style={{ background: sent.color, opacity: 0.65, borderRadius: 2 }}
+      />
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 pl-3">
+
+        {/* Meta row */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono text-muted uppercase tracking-wide">{item.source}</span>
+          {item.created_at && (
+            <>
+              <span className="text-[10px] text-muted opacity-30">·</span>
+              <span className="text-[10px] font-mono text-muted">{timeAgo(item.created_at)}</span>
+            </>
+          )}
+          {item.url && (
+            <span
+              className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              ↗
+            </span>
+          )}
+        </div>
+
+        {/* Headline */}
+        <p className="text-sm leading-snug mb-3 line-clamp-2 group-hover:opacity-75 transition-opacity duration-150">
+          {item.headline || '(no headline)'}
+        </p>
+
+        {/* Tags */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="text-[10px] font-mono font-bold px-1.5 py-[2px]"
+            style={{
+              background: 'rgba(245,158,11,0.12)',
+              color: 'var(--color-accent)',
+              border: '1px solid rgba(245,158,11,0.22)',
+              borderRadius: 2,
+            }}
+          >
+            {item.ticker}
+          </span>
+          <span
+            className="text-[10px] font-mono font-semibold px-1.5 py-[2px]"
+            style={{ background: sent.bg, color: sent.color, borderRadius: 2 }}
+          >
+            {sent.label}
+          </span>
+          <span
+            className="text-[11px] font-mono font-bold tabular-nums"
+            style={{ color: sent.color }}
+          >
+            {s >= 0 ? '+' : ''}{s.toFixed(3)}
+          </span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
-function IconPercent() {
+function NewsSkeletonCard() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="19" y1="5" x2="5" y2="19" />
-      <circle cx="6.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="17.5" r="2.5" />
-    </svg>
+    <div className="flex gap-4 px-6 py-5 border-b border-border">
+      <div className="flex-1 space-y-2.5 pl-3">
+        <div className="h-2.5 w-24 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-3.5 w-full rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-3.5 w-4/5 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-5 w-44 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+      </div>
+    </div>
   );
 }
 
-function IconTrend() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-      <polyline points="16 7 22 7 22 13" />
-    </svg>
-  );
-}
+// ── Page entry animation helper ───────────────────────────────────────────────
 
 const fade = (delay = 0) => ({
-  initial: { opacity: 0, y: 12 },
+  initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.35, delay },
+  transition: { duration: 0.32, delay, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
 });
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const { account, setAccount, setPositions } = useAccountStore();
-  const [period, setPeriod] = useState<PortfolioPeriod>('1D');
+  const [period, setPeriod]               = useState<PortfolioPeriod>('1D');
+  const [bpOpen, setBpOpen]               = useState(false);
+  const [marketSnaps, setMarketSnaps]     = useState<Partial<Record<MarketSym, Snapshot>>>({});
+  const [news, setNews]                   = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading]     = useState(false);
+  const [newsLoaded, setNewsLoaded]       = useState(false);
 
-  const refresh = useCallback(async () => {
+  // ── Fetching ────────────────────────────────────────────────────────────────
+
+  const refreshAccount = useCallback(async () => {
     try {
       const [a, p] = await Promise.all([api.getAccount(), api.getPositions()]);
       setAccount(a);
@@ -64,142 +208,357 @@ export default function Home() {
     } catch { /* ignore */ }
   }, [setAccount, setPositions]);
 
-  useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 10_000);
-    return () => clearInterval(id);
-  }, [refresh]);
+  const fetchMarket = useCallback(async () => {
+    const results = await Promise.allSettled(
+      MARKET_SYMBOLS.map((sym) => api.getSnapshot(sym))
+    );
+    const snaps: Partial<Record<MarketSym, Snapshot>> = {};
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') snaps[MARKET_SYMBOLS[i]] = r.value;
+    });
+    setMarketSnaps(snaps);
+  }, []);
 
-  const equity = parseFloat(account?.equity ?? '0');
-  const totalPl = equity - STARTING_EQUITY;
-  const totalPlPct = (totalPl / STARTING_EQUITY) * 100;
-  const dailyPl = equity - parseFloat(account?.last_equity ?? String(equity));
-  const dailyPlPct = equity - dailyPl !== 0 ? (dailyPl / (equity - dailyPl)) * 100 : 0;
-  const isUp = dailyPl >= 0;
+  const fetchNews = useCallback(async () => {
+    if (newsLoaded) return;
+    setNewsLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        NEWS_TICKERS.map((sym) => api.getSentiment(sym, 5))
+      );
+      const items: NewsItem[] = [];
+      const seen = new Set<string>();
+      results.forEach((r, i) => {
+        if (r.status !== 'fulfilled') return;
+        r.value.articles.forEach((a) => {
+          const key = a.article_id || a.headline;
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          items.push({ ...a, ticker: NEWS_TICKERS[i] });
+        });
+      });
+      items.sort((a, b) => {
+        const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return db - da;
+      });
+      setNews(items);
+      setNewsLoaded(true);
+    } catch { /* ignore */ }
+    setNewsLoading(false);
+  }, [newsLoaded]);
+
+  useEffect(() => {
+    refreshAccount();
+    fetchMarket();
+    const id = setInterval(refreshAccount, 10_000);
+    return () => clearInterval(id);
+  }, [refreshAccount, fetchMarket]);
+
+  useEffect(() => {
+    const t = setTimeout(fetchNews, 800);
+    return () => clearTimeout(t);
+  }, [fetchNews]);
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+
+  const equity      = parseFloat(account?.equity       ?? '0');
+  const totalPl     = equity - STARTING_EQUITY;
+  const totalPlPct  = (totalPl / STARTING_EQUITY) * 100;
+  const lastEquity  = parseFloat(account?.last_equity  ?? String(equity));
+  const dailyPl     = equity - lastEquity;
+  const dailyPlPct  = lastEquity !== 0 ? (dailyPl / lastEquity) * 100 : 0;
+  const isUp        = dailyPl >= 0;
+
+  const bullish = news.filter((n) => (n.score ?? 0) >= 0.2).length;
+  const bearish = news.filter((n) => (n.score ?? 0) <= -0.2).length;
+  const neutral = news.length - bullish - bearish;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="max-w-4xl">
 
-      {/* ── Hero card ───────────────────────────────────────────────── */}
-      <motion.div {...fade(0)}>
-        <div
-          className="terminal-card p-6 md:p-7"
-          style={{ borderLeft: '3px solid var(--color-accent)' }}
-        >
-          <div className="flex flex-col gap-4">
-            {/* Equity hero */}
-            <div>
-              <div className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1.5">
-                Portfolio Value
-              </div>
-              <div className="text-4xl md:text-5xl font-bold font-mono leading-none tracking-tight">
-                <AnimatedNumber value={equity} prefix="$" />
-              </div>
+      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
+      <motion.div {...fade(0)} className="mb-6">
+        <div className="terminal-card overflow-hidden" style={{ borderLeft: '3px solid var(--color-accent)' }}>
+
+          {/* Main hero content */}
+          <div className="p-7 md:p-9">
+            {/* Account label row */}
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-[9px] font-mono tracking-[0.25em] text-muted uppercase">
+                Individual
+              </span>
+              <span className="text-muted opacity-30 text-[10px]">·</span>
+              <span
+                className="inline-flex items-center gap-1.5 text-[9px] font-mono tracking-widest"
+                style={{ color: 'var(--color-gain)' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-gain animate-pulse shrink-0" />
+                Paper Trading
+              </span>
             </div>
 
-            {/* Daily P&L row */}
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-semibold font-mono ${
-                isUp ? 'bg-gain-soft text-gain' : 'bg-loss-soft text-loss'
-              }`}>
-                {isUp ? '▲' : '▼'} {plSign(dailyPl)}{fmt(Math.abs(dailyPl))}
+            {/* Equity number */}
+            <div className="text-4xl md:text-5xl font-bold font-mono leading-none tracking-tight mb-5">
+              <AnimatedNumber value={equity} prefix="$" />
+            </div>
+
+            {/* P&L row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold font-mono"
+                style={{
+                  borderRadius: 2,
+                  background: isUp ? 'var(--color-gain-soft)' : 'var(--color-loss-soft)',
+                  color:      isUp ? 'var(--color-gain)'      : 'var(--color-loss)',
+                }}
+              >
+                {isUp ? '▲' : '▼'} {plSign(dailyPl)}{fmt(Math.abs(dailyPl))} today
               </span>
               <span className="text-xs font-mono text-muted">
-                {plSign(dailyPlPct)}{dailyPlPct.toFixed(2)}% today
+                {plSign(dailyPlPct)}{dailyPlPct.toFixed(2)}%
               </span>
-              <span className="text-xs text-muted">·</span>
-              <span className="text-xs text-muted">
-                Started at {fmt(STARTING_EQUITY)}
+              <span className="text-muted opacity-30 text-xs">·</span>
+              <span className="text-xs font-mono text-muted">
+                All-time{' '}
+                <span className={plClass(totalPl)}>
+                  {plSign(totalPl)}{fmt(Math.abs(totalPl))}
+                </span>
+                <span style={{ opacity: 0.55 }}>
+                  {' '}({plSign(totalPlPct)}{totalPlPct.toFixed(2)}%)
+                </span>
               </span>
             </div>
+          </div>
+
+          {/* Collapsible buying power */}
+          <div className="border-t border-border">
+            <button
+              className="w-full flex items-center justify-between px-7 py-4 text-xs font-mono text-muted hover:bg-hover transition-colors duration-150"
+              onClick={() => setBpOpen((o) => !o)}
+            >
+              <span className="uppercase tracking-[0.2em]">Buying Power</span>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold tabular-nums" style={{ color: 'var(--color-text)' }}>
+                  {fmt(account?.buying_power)}
+                </span>
+                <svg
+                  className="w-3 h-3 transition-transform duration-200"
+                  style={{ transform: bpOpen ? 'rotate(180deg)' : 'none' }}
+                  fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+            </button>
+
+            <AnimatePresence>
+              {bpOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div
+                    className="grid grid-cols-2 md:grid-cols-4"
+                    style={{ borderTop: '1px solid var(--color-border)', gap: 1, background: 'var(--color-border)' }}
+                  >
+                    {[
+                      { label: 'Buying Power',  value: fmt(account?.buying_power) },
+                      { label: 'Cash',          value: fmt(account?.cash) },
+                      { label: 'Reg-T Margin',  value: fmt(account?.regt_buying_power) },
+                      { label: 'Day Trade BP',  value: fmt(account?.daytrading_buying_power) },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="px-6 py-5" style={{ background: 'var(--color-card)' }}>
+                        <div className="text-[9px] font-mono text-muted uppercase tracking-widest mb-2">{label}</div>
+                        <div className="text-sm font-mono font-semibold tabular-nums">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>
 
-      {/* ── Stats strip ─────────────────────────────────────────────── */}
-      <motion.div {...fade(0.08)}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-          {/* Total Equity */}
-          <div className="terminal-card p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Total Equity</span>
-              <span className="text-accent"><IconTrend /></span>
-            </div>
-            <div>
-              <div className="text-lg font-mono font-bold tabular-nums">{fmt(account?.equity)}</div>
-              <div className="text-xs text-muted mt-0.5">Portfolio balance</div>
-            </div>
-          </div>
-
-          {/* Buying Power */}
-          <div className="terminal-card p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Buying Power</span>
-              <span className="text-accent"><IconWallet /></span>
-            </div>
-            <div>
-              <div className="text-lg font-mono font-bold tabular-nums">{fmt(account?.buying_power)}</div>
-              <div className="text-xs text-muted mt-0.5">Available capital</div>
-            </div>
-          </div>
-
-          {/* Daily P&L */}
-          <div className="terminal-card p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Daily P&amp;L</span>
-              <span className={dailyPl >= 0 ? 'text-gain' : 'text-loss'}><IconBarChart /></span>
-            </div>
-            <div>
-              <div className={`text-lg font-mono font-bold tabular-nums ${plClass(dailyPl)}`}>
-                {plSign(dailyPl)}{fmt(Math.abs(dailyPl))}
-              </div>
-              <div className="text-xs text-muted mt-0.5">{plSign(dailyPlPct)}{dailyPlPct.toFixed(2)}% change</div>
-            </div>
-          </div>
-
-          {/* Total Return */}
-          <div className="terminal-card p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-muted uppercase tracking-widest">Total Return</span>
-              <span className={totalPlPct >= 0 ? 'text-gain' : 'text-loss'}><IconPercent /></span>
-            </div>
-            <div>
-              <div className={`text-lg font-mono font-bold tabular-nums ${plClass(totalPlPct)}`}>
-                {plSign(totalPlPct)}{totalPlPct.toFixed(2)}%
-              </div>
-              <div className="text-xs text-muted mt-0.5">{plSign(totalPl)}{fmt(Math.abs(totalPl))} all-time</div>
-            </div>
-          </div>
-
-        </div>
-      </motion.div>
-
-      {/* ── Chart card ──────────────────────────────────────────────── */}
-      <motion.div {...fade(0.16)}>
+      {/* ── CHART ────────────────────────────────────────────────────────────── */}
+      <motion.div {...fade(0.08)} className="mb-6">
         <div className="terminal-card overflow-hidden">
-          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold font-mono">Portfolio Performance</span>
-              <span className="text-[10px] text-muted font-mono uppercase tracking-widest hidden sm:block">Equity curve</span>
+              <span className="text-[11px] font-semibold font-mono tracking-wide">
+                Portfolio Performance
+              </span>
+              <span className="text-[9px] text-muted font-mono uppercase tracking-widest hidden sm:block">
+                Equity curve
+              </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {PORTFOLIO_PERIODS.map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded-sm text-xs font-mono font-medium transition-colors duration-150 ${
-                    period === p
-                      ? 'bg-accent text-bg'
-                      : 'text-muted hover:text-text hover:bg-hover'
-                  }`}
+                  className="px-2.5 py-1 text-xs font-mono font-medium transition-all duration-150"
+                  style={{
+                    borderRadius: 2,
+                    background: period === p ? 'var(--color-accent)' : 'transparent',
+                    color:      period === p ? '#09090b'              : 'var(--color-muted)',
+                  }}
                 >
                   {p}
                 </button>
               ))}
             </div>
           </div>
-          <PortfolioAreaChart period={period} height={260} />
+          <PortfolioAreaChart period={period} height={300} />
+        </div>
+      </motion.div>
+
+      {/* ── STATS STRIP ──────────────────────────────────────────────────────── */}
+      <motion.div {...fade(0.14)} className="mb-10">
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 rounded-sm overflow-hidden"
+          style={{ border: '1px solid var(--color-border)', gap: 1, background: 'var(--color-border)' }}
+        >
+          {[
+            {
+              label: 'Total Equity',
+              value: fmt(account?.equity),
+              sub:   'Portfolio balance',
+              color: undefined,
+            },
+            {
+              label: 'Long Value',
+              value: fmt(account?.long_market_value),
+              sub:   'Invested capital',
+              color: undefined,
+            },
+            {
+              label: 'Daily P&L',
+              value: `${plSign(dailyPl)}${fmt(Math.abs(dailyPl))}`,
+              sub:   `${plSign(dailyPlPct)}${dailyPlPct.toFixed(2)}% today`,
+              color: plClass(dailyPl),
+            },
+            {
+              label: 'Total Return',
+              value: `${plSign(totalPlPct)}${totalPlPct.toFixed(2)}%`,
+              sub:   `${plSign(totalPl)}${fmt(Math.abs(totalPl))} from $100K`,
+              color: plClass(totalPl),
+            },
+          ].map(({ label, value, sub, color }) => (
+            <div key={label} className="px-5 py-5" style={{ background: 'var(--color-card)' }}>
+              <div className="text-[9px] font-mono text-muted uppercase tracking-widest mb-2.5">{label}</div>
+              <div className={`text-base font-mono font-bold tabular-nums ${color ?? ''}`}>{value}</div>
+              <div className="text-[10px] text-muted mt-1.5">{sub}</div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* ── MARKET PULSE SECTION ─────────────────────────────────────────────── */}
+      <motion.div {...fade(0.2)}>
+
+        {/* Section header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-[3px] h-4 rounded-full shrink-0"
+              style={{ background: 'var(--color-accent)' }}
+            />
+            <h2 className="text-[11px] font-mono font-bold tracking-[0.22em] uppercase">
+              Market Pulse
+            </h2>
+          </div>
+          <span className="text-[9px] font-mono text-muted tracking-widest">
+            AI-Scored Headlines · FinBERT
+          </span>
+        </div>
+
+        <div className="terminal-card overflow-hidden">
+
+          {/* Market overview bar + sentiment summary */}
+          <div className="flex items-stretch border-b border-border overflow-x-auto scrollbar-none">
+            {MARKET_SYMBOLS.map((sym) => (
+              <MarketTicker key={sym} symbol={sym} snap={marketSnaps[sym]} />
+            ))}
+
+            {/* Sentiment tally — right side */}
+            {newsLoaded && news.length > 0 && (
+              <div className="ml-auto px-6 flex items-center gap-4 shrink-0 border-l border-border">
+                <div className="flex items-center gap-2 text-[9px] font-mono tracking-widest">
+                  <span style={{ color: 'var(--color-gain)' }}>{bullish} BULL</span>
+                  <span className="text-muted opacity-30">·</span>
+                  <span className="text-muted">{neutral} NEUT</span>
+                  <span className="text-muted opacity-30">·</span>
+                  <span style={{ color: 'var(--color-loss)' }}>{bearish} BEAR</span>
+                </div>
+                {/* Distribution bar */}
+                <div className="flex h-1.5 w-24 overflow-hidden" style={{ borderRadius: 1 }}>
+                  {bullish > 0 && (
+                    <div style={{ width: `${(bullish / news.length) * 100}%`, background: 'var(--color-gain)' }} />
+                  )}
+                  {neutral > 0 && (
+                    <div style={{ width: `${(neutral / news.length) * 100}%`, background: 'var(--color-border)' }} />
+                  )}
+                  {bearish > 0 && (
+                    <div style={{ width: `${(bearish / news.length) * 100}%`, background: 'var(--color-loss)' }} />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* News feed */}
+          <div>
+            {/* Loading skeletons */}
+            {newsLoading && !newsLoaded && (
+              <>
+                {[...Array(6)].map((_, i) => (
+                  <NewsSkeletonCard key={i} />
+                ))}
+              </>
+            )}
+
+            {/* Empty state */}
+            {newsLoaded && news.length === 0 && (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <div
+                  className="w-10 h-10 border flex items-center justify-center"
+                  style={{ borderRadius: 2, borderColor: 'var(--color-border)', opacity: 0.3 }}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    style={{ color: 'var(--color-muted)' }}
+                    fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-mono text-muted tracking-[0.3em] uppercase">
+                  No news available
+                </p>
+                <p className="text-[11px] text-muted" style={{ opacity: 0.5 }}>
+                  Start the backend to load headlines
+                </p>
+              </div>
+            )}
+
+            {/* Article cards */}
+            {news.map((item, i) => (
+              <NewsCard
+                key={item.article_id || `${item.ticker}-${i}`}
+                item={item}
+                delay={i * 0.035}
+              />
+            ))}
+          </div>
         </div>
       </motion.div>
 
