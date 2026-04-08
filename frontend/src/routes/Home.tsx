@@ -92,61 +92,63 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
   const s    = item.score ?? 0;
   const sent = sentimentMeta(s);
 
+  const thumbBg = s >= 0.2
+    ? 'rgba(22,163,74,0.07)'
+    : s <= -0.2
+    ? 'rgba(220,38,38,0.07)'
+    : 'var(--color-surface)';
+  const thumbBorderColor = s >= 0.2
+    ? 'rgba(22,163,74,0.18)'
+    : s <= -0.2
+    ? 'rgba(220,38,38,0.18)'
+    : 'var(--color-border)';
+
+  const directionArrow = s >= 0.2 ? '▲' : s <= -0.2 ? '▼' : '–';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, delay, ease: 'easeOut' }}
-      className="relative flex gap-4 px-6 py-5 border-b border-border last:border-0 cursor-pointer group transition-colors duration-150"
+      className="flex gap-5 px-6 py-7 border-b border-border last:border-0 cursor-pointer group transition-colors duration-150"
       onClick={() => item.url && window.open(item.url, '_blank')}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-hover)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
     >
-      {/* Sentiment left border */}
-      <div
-        className="absolute left-0 top-4 bottom-4 w-[3px]"
-        style={{ background: sent.color, opacity: 0.65, borderRadius: 2 }}
-      />
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 pl-3">
+      {/* ── Left: text stack ─────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
 
-        {/* Meta row */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-mono text-muted uppercase tracking-wide">{item.source}</span>
+        {/* Source · time — top anchor */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-mono font-medium text-muted">
+            {item.source}
+          </span>
           {item.created_at && (
-            <>
-              <span className="text-[10px] text-muted opacity-30">·</span>
-              <span className="text-[10px] font-mono text-muted">{timeAgo(item.created_at)}</span>
-            </>
-          )}
-          {item.url && (
-            <span
-              className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              ↗
+            <span className="text-[11px] font-mono text-muted" style={{ opacity: 0.5 }}>
+              {timeAgo(item.created_at)}
             </span>
           )}
         </div>
 
-        {/* Headline */}
-        <p className="text-sm leading-snug mb-3 line-clamp-2 group-hover:opacity-75 transition-opacity duration-150">
+        {/* Headline — primary content */}
+        <h3 className="text-[14px] font-semibold leading-[1.45] line-clamp-2 group-hover:opacity-70 transition-opacity duration-150">
           {item.headline || '(no headline)'}
-        </p>
+        </h3>
 
-        {/* Tags */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Contextual asset info — bottom left */}
+        <div className="flex items-center gap-2.5 mt-1">
           <span
-            className="text-[10px] font-mono font-bold px-1.5 py-[2px]"
-            style={{
-              background: 'rgba(245,158,11,0.12)',
-              color: 'var(--color-accent)',
-              border: '1px solid rgba(245,158,11,0.22)',
-              borderRadius: 2,
-            }}
+            className="text-[11px] font-mono font-bold"
+            style={{ color: 'var(--color-accent)' }}
           >
             {item.ticker}
+          </span>
+          <span
+            className="text-[11px] font-mono font-medium tabular-nums"
+            style={{ color: sent.color }}
+          >
+            {directionArrow} {Math.abs(s).toFixed(3)}
           </span>
           <span
             className="text-[10px] font-mono font-semibold px-1.5 py-[2px]"
@@ -154,27 +156,53 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
           >
             {sent.label}
           </span>
-          <span
-            className="text-[11px] font-mono font-bold tabular-nums"
-            style={{ color: sent.color }}
-          >
-            {s >= 0 ? '+' : ''}{s.toFixed(3)}
-          </span>
+          {item.url && (
+            <span
+              className="ml-auto text-[11px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              Read →
+            </span>
+          )}
         </div>
       </div>
+
+      {/* ── Right: thumbnail placeholder ─────────────────────────────── */}
+      <div
+        className="shrink-0 flex items-center justify-center overflow-hidden self-center"
+        style={{
+          width: 88,
+          height: 66,
+          borderRadius: 3,
+          background: thumbBg,
+          border: `1px solid ${thumbBorderColor}`,
+        }}
+      >
+        <span
+          className="font-mono font-black select-none tabular-nums"
+          style={{ fontSize: 17, letterSpacing: '-0.04em', color: sent.color, opacity: 0.3 }}
+        >
+          {item.ticker}
+        </span>
+      </div>
+
     </motion.div>
   );
 }
 
 function NewsSkeletonCard() {
   return (
-    <div className="flex gap-4 px-6 py-5 border-b border-border">
-      <div className="flex-1 space-y-2.5 pl-3">
-        <div className="h-2.5 w-24 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
-        <div className="h-3.5 w-full rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
-        <div className="h-3.5 w-4/5 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
-        <div className="h-5 w-44 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+    <div className="flex gap-5 px-6 py-7 border-b border-border">
+      <div className="flex-1 flex flex-col gap-2.5">
+        <div className="h-2.5 w-28 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-4 w-full rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-4 w-3/4 rounded-sm animate-shimmer" style={{ background: 'var(--color-hover)' }} />
+        <div className="h-3.5 w-36 rounded-sm animate-shimmer mt-0.5" style={{ background: 'var(--color-hover)' }} />
       </div>
+      <div
+        className="shrink-0 self-center rounded-sm animate-shimmer"
+        style={{ width: 88, height: 66, background: 'var(--color-hover)' }}
+      />
     </div>
   );
 }

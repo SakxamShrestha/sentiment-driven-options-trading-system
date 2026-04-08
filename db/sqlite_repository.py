@@ -115,6 +115,50 @@ class SQLiteRepository:
                 );
                 CREATE INDEX IF NOT EXISTS idx_progress_user ON learn_user_progress(user_id);
                 CREATE INDEX IF NOT EXISTS idx_progress_lesson ON learn_user_progress(user_id, lesson_id);
+
+                CREATE TABLE IF NOT EXISTS learn_courses (
+                    id          INTEGER PRIMARY KEY,
+                    title       TEXT NOT NULL,
+                    instructor  TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    duration    TEXT NOT NULL,
+                    emoji       TEXT NOT NULL,
+                    gradient    TEXT NOT NULL,
+                    accent_color TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS learn_course_modules (
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    course_id         INTEGER NOT NULL,
+                    module_order      INTEGER NOT NULL,
+                    title             TEXT NOT NULL,
+                    intro             TEXT NOT NULL,
+                    key_concepts      TEXT NOT NULL,
+                    estimated_minutes INTEGER NOT NULL DEFAULT 10
+                );
+                CREATE INDEX IF NOT EXISTS idx_course_modules ON learn_course_modules(course_id);
+
+                CREATE TABLE IF NOT EXISTS learn_course_questions (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    module_id      INTEGER NOT NULL,
+                    question_order INTEGER NOT NULL,
+                    question       TEXT NOT NULL,
+                    options        TEXT NOT NULL,
+                    correct_index  INTEGER NOT NULL,
+                    explanation    TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_course_questions ON learn_course_questions(module_id);
+
+                CREATE TABLE IF NOT EXISTS learn_course_progress (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      TEXT NOT NULL,
+                    course_id    INTEGER NOT NULL,
+                    module_id    INTEGER NOT NULL,
+                    score        INTEGER,
+                    total        INTEGER,
+                    completed_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_course_prog_user ON learn_course_progress(user_id, course_id);
             """)
         logger.info("SQLite schema initialized at %s", self.db_path)
 
@@ -358,4 +402,164 @@ class SQLiteRepository:
                    GROUP BY lesson_id""",
                 (user_id,),
             ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_random_question(self) -> Optional[Dict[str, Any]]:
+        """Return one random quiz question joined with its lesson title/emoji."""
+        import json as _json
+        with self._connection() as conn:
+            row = conn.execute(
+                """SELECT q.id, q.lesson_id, q.question_order, q.question,
+                          q.options, q.correct_index, q.explanation,
+                          ll.title AS lesson_title, ll.emoji AS lesson_emoji
+                   FROM learn_quiz_questions q
+                   JOIN learn_lessons ll ON ll.id = q.lesson_id
+                   ORDER BY RANDOM() LIMIT 1"""
+            ).fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["options"] = _json.loads(d["options"])
+            return d
+
+    # ── Courses platform ────────────────────────────────────────────────────────
+
+    def seed_courses(self, courses: list, modules: list, questions: dict) -> None:
+        """
+        Seed learn_courses, learn_course_modules, learn_course_questions.
+        courses: list of dicts with keys matching learn_courses columns
+        modules: list of dicts (course_id, module_order, title, intro, key_concepts, estimated_minutes)
+        questions: dict mapping (course_id, module_order) → list of question dicts
+        Idempotent: skips rows that already exist.
+        """
+        import json as _json
+        with self._connection() as conn:
+            for c in courses:
+                conn.execute(
+                    """INSERT OR IGNORE INTO learn_courses
+                       (id, title, instructor, description, duration, emoji, gradient, accent_color)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (c["id"], c["title"], c["instructor"], c["description"],
+                     c["duration"], c["emoji"], c["gradient"], c["accent_color"]),
+                )
+            for mod in modules:
+                existing = conn.execute(
+                    "SELECT id FROM learn_course_modules WHERE course_id=? AND module_order=?",
+                    (mod["course_id"], mod["module_order"]),
+                ).fetchone()
+                if existing:
+                    continue
+                cur = conn.execute(
+                    """INSERT INTO learn_course_modules
+                       (course_id, module_order, title, intro, key_concepts, estimated_minutes)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (mod["course_id"], mod["module_order"], mod["title"],
+                     mod["intro"], _json.dumps(mod["key_concepts"]), mod["estimated_minutes"]),
+                )
+                module_id = cur.lastrowid
+                key = (mod["course_id"], mod["module_order"])
+                for q in questions.get(key, []):
+                    conn.execute(
+                        """INSERT INTO learn_course_questions
+                           (module_id, question_order, question, options, correct_index, explanation)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (module_id, q["order"], q["question"],
+                         _json.dumps(q["options"]), q["correct_index"], q["explanation"]),
+                    )
+        logger.info("Courses seeded: %d courses, %d modules", len(courses), len(modules))
+
+    def get_courses(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return all courses. If user_id given, include completed_modules count."""
+        with self._connection() as conn:
+            rows = conn.execute("SELECT * FROM learn_courses ORDER BY id").fetchall()
+            courses = [dict(r) for r in rows]
+            if user_id:
+                for course in courses:
+                    total_mods = conn.execute(
+                        "SELECT COUNT(*) FROM learn_course_modules WHERE course_id=?",
+                        (course["id"],),
+                    ).fetchone()[0]
+                    done_mods = conn.execute(
+                        "SELECT COUNT(DISTINCT module_id) FROM learn_course_progress WHERE user_id=? AND course_id=?",
+                        (user_id, course["id"]),
+                    ).fetchone()[0]
+                    course["total_modules"] = total_mods
+                    course["completed_modules"] = done_mods
+            return courses
+
+    def get_course_modules(self, course_id: int, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return module list for a course (metadata only, no content)."""
+        with self._connection() as conn:
+            rows = conn.execute(
+                """SELECT id, course_id, module_order, title, estimated_minutes
+                   FROM learn_course_modules WHERE course_id=? ORDER BY module_order""",
+                (course_id,),
+            ).fetchall()
+            modules = [dict(r) for r in rows]
+            if user_id and modules:
+                done_ids = {r[0] for r in conn.execute(
+                    "SELECT DISTINCT module_id FROM learn_course_progress WHERE user_id=? AND course_id=?",
+                    (user_id, course_id),
+                ).fetchall()}
+                for m in modules:
+                    m["completed"] = m["id"] in done_ids
+            return modules
+
+    def get_course_module(self, module_id: int) -> Optional[Dict[str, Any]]:
+        """Return full module content including key concepts and questions."""
+        import json as _json
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM learn_course_modules WHERE id=?", (module_id,)
+            ).fetchone()
+            if not row:
+                return None
+            module = dict(row)
+            module["key_concepts"] = _json.loads(module["key_concepts"])
+            q_rows = conn.execute(
+                """SELECT id, question_order, question, options, correct_index, explanation
+                   FROM learn_course_questions WHERE module_id=? ORDER BY question_order""",
+                (module_id,),
+            ).fetchall()
+            questions = []
+            for qr in q_rows:
+                qd = dict(qr)
+                qd["options"] = _json.loads(qd["options"])
+                questions.append(qd)
+            module["questions"] = questions
+            return module
+
+    def save_course_progress(
+        self, user_id: str, course_id: int, module_id: int,
+        score: int, total: int
+    ) -> int:
+        """Record a module completion. Returns row id."""
+        from datetime import datetime, timezone
+        with self._connection() as conn:
+            cur = conn.execute(
+                """INSERT INTO learn_course_progress
+                   (user_id, course_id, module_id, score, total, completed_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (user_id, course_id, module_id, score, total,
+                 datetime.now(timezone.utc).isoformat()),
+            )
+            return cur.lastrowid
+
+    def get_course_progress(self, user_id: str, course_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Return completed modules for a user, optionally filtered by course."""
+        with self._connection() as conn:
+            if course_id is not None:
+                rows = conn.execute(
+                    """SELECT module_id, MAX(score) as best_score, total, MAX(completed_at) as completed_at
+                       FROM learn_course_progress WHERE user_id=? AND course_id=?
+                       GROUP BY module_id""",
+                    (user_id, course_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT course_id, module_id, MAX(score) as best_score, total, MAX(completed_at) as completed_at
+                       FROM learn_course_progress WHERE user_id=?
+                       GROUP BY course_id, module_id""",
+                    (user_id,),
+                ).fetchall()
             return [dict(r) for r in rows]

@@ -362,6 +362,15 @@ _FALLBACK_TIP = {
 }
 
 
+@dashboard_bp.route("/learn/daily-trivia", methods=["GET"])
+def daily_trivia_question():
+    """Return one random quiz question for Daily Trivia."""
+    question = get_repo().get_random_question()
+    if not question:
+        return jsonify({"error": "No questions available"}), 404
+    return jsonify(question)
+
+
 @dashboard_bp.route("/learn/tip", methods=["GET"])
 def daily_tip():
     """

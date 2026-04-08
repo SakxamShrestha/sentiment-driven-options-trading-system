@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import QuizModal from '../components/learn/QuizModal';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { LearnQuestion } from '../types';
+import type { LearnQuestion, LearnProgress } from '../types';
 
 // ─── Glossary Data — add your terms here ──────────────────────────────────────
 // Each entry: { term, definition, emoji }
@@ -511,7 +511,37 @@ const RECOMMENDED = [
 ];
 
 const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const COMPLETED_DAYS = [0, 1, 2];
+
+// ─── Progress helpers ──────────────────────────────────────────────────────────
+function calcStreak(progress: LearnProgress[]): number {
+  if (!progress.length) return 0;
+  const dates = new Set(progress.map(p => p.completed_at.slice(0, 10)));
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const ds = d.toISOString().slice(0, 10);
+    if (dates.has(ds)) { streak++; d.setDate(d.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+function getWeekDots(progress: LearnProgress[]): boolean[] {
+  const dates = new Set(progress.map(p => p.completed_at.slice(0, 10)));
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return dates.has(d.toISOString().slice(0, 10));
+  });
+}
+
+type TriviaQ = LearnQuestion & { lesson_title?: string; lesson_emoji?: string };
 
 // ─── Lesson Library Data ───────────────────────────────────────────────────────
 const LESSONS: {
@@ -1203,7 +1233,13 @@ export default function Learn() {
   const [quizQuestions, setQuizQuestions] = useState<LearnQuestion[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<Set<number>>(new Set());
+  const [progressData, setProgressData] = useState<LearnProgress[]>([]);
   const [tip, setTip] = useState<{ quote: string; author: string } | null>(null);
+  // Daily Trivia
+  const [triviaQ, setTriviaQ] = useState<TriviaQ | null>(null);
+  const [triviaLoading, setTriviaLoading] = useState(false);
+  const [triviaSelected, setTriviaSelected] = useState<number | null>(null);
+  const [triviaRevealed, setTriviaRevealed] = useState(false);
   const { user } = useAuthStore();
 
   useEffect(() => {
@@ -1214,7 +1250,10 @@ export default function Learn() {
   useEffect(() => {
     if (!user?.uid) return;
     api.getLearnProgress(user.uid)
-      .then(progress => setCompletedLessons(new Set(progress.map(p => p.lesson_id))))
+      .then(progress => {
+        setProgressData(progress);
+        setCompletedLessons(new Set(progress.map(p => p.lesson_id)));
+      })
       .catch(() => {});
   }, [user?.uid]);
 
@@ -1236,6 +1275,18 @@ export default function Learn() {
     api.saveLearnProgress(user.uid, quizLesson.id, score, total).catch(() => {});
     setCompletedLessons(prev => new Set([...prev, quizLesson.id]));
   }, [user?.uid, quizLesson]);
+
+  const handleStartTrivia = useCallback(async () => {
+    setTriviaLoading(true);
+    setTriviaQ(null);
+    setTriviaSelected(null);
+    setTriviaRevealed(false);
+    try {
+      const q = await api.getDailyTrivia();
+      setTriviaQ(q);
+    } catch { /* ignore */ }
+    setTriviaLoading(false);
+  }, []);
 
   return (
     <>
@@ -1511,136 +1562,225 @@ export default function Learn() {
             }}>
               Your Progress
             </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {/* Lessons completed */}
-              <div style={{
-                flex: 1,
-                borderRadius: 14,
-                background: 'rgba(139,92,246,0.08)',
-                border: '1px solid rgba(139,92,246,0.2)',
-                padding: '14px 10px',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>📚</div>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: '#a78bfa',
-                  lineHeight: 1,
-                  marginBottom: 5,
-                }}>7</div>
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', lineHeight: 1.4 }}>
-                  lessons<br />completed
-                </div>
-              </div>
+            {(() => {
+              const totalAnswered = progressData.reduce((s, p) => s + p.total, 0);
+              return (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {/* Lessons completed */}
+                  <div style={{
+                    flex: 1,
+                    borderRadius: 14,
+                    background: 'rgba(139,92,246,0.08)',
+                    border: '1px solid rgba(139,92,246,0.2)',
+                    padding: '14px 10px',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>📚</div>
+                    <div style={{
+                      fontSize: 24,
+                      fontWeight: 800,
+                      fontFamily: 'var(--font-mono)',
+                      color: '#a78bfa',
+                      lineHeight: 1,
+                      marginBottom: 5,
+                    }}>{completedLessons.size}</div>
+                    <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', lineHeight: 1.4 }}>
+                      lessons<br />completed
+                    </div>
+                  </div>
 
-              {/* Time spent */}
-              <div style={{
-                flex: 1,
-                borderRadius: 14,
-                background: 'rgba(249,115,22,0.08)',
-                border: '1px solid rgba(249,115,22,0.2)',
-                padding: '14px 10px',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>⏱️</div>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: '#fb923c',
-                  lineHeight: 1,
-                  marginBottom: 5,
-                }}>43</div>
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', lineHeight: 1.4 }}>
-                  min spent<br />learning
+                  {/* Questions answered */}
+                  <div style={{
+                    flex: 1,
+                    borderRadius: 14,
+                    background: 'rgba(249,115,22,0.08)',
+                    border: '1px solid rgba(249,115,22,0.2)',
+                    padding: '14px 10px',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>✅</div>
+                    <div style={{
+                      fontSize: 24,
+                      fontWeight: 800,
+                      fontFamily: 'var(--font-mono)',
+                      color: '#fb923c',
+                      lineHeight: 1,
+                      marginBottom: 5,
+                    }}>{totalAnswered}</div>
+                    <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', lineHeight: 1.4 }}>
+                      quiz Qs<br />answered
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           {/* Daily Trivia */}
-          <div style={{
-            borderRadius: 20,
-            background: 'var(--color-card)',
-            border: '1px solid var(--color-border)',
-            padding: '18px 18px 20px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🎯 Daily Trivia</h3>
-              <button style={{
-                padding: '5px 14px',
-                borderRadius: 10,
-                background: 'rgba(249,115,22,0.12)',
-                border: '1.5px solid rgba(249,115,22,0.38)',
-                color: '#f97316',
-                fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}>
-                Start
-              </button>
-            </div>
-
-            <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--color-muted)', marginBottom: 16 }}>
-              Test your knowledge with today's market question.
-            </p>
-
-            {/* Streak row */}
-            <div style={{
-              borderRadius: 14,
-              background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.05))',
-              border: '1px solid rgba(249,115,22,0.18)',
-              padding: '12px 12px 10px',
-            }}>
+          {(() => {
+            const streak   = calcStreak(progressData);
+            const weekDots = getWeekDots(progressData);
+            return (
               <div style={{
-                fontSize: 10,
-                fontFamily: 'var(--font-mono)',
-                color: 'rgba(249,115,22,0.7)',
-                marginBottom: 10,
-                letterSpacing: '0.07em',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                borderRadius: 20,
+                background: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                padding: '18px 18px 20px',
               }}>
-                <span>THIS WEEK</span>
-                <span>🔥 3 day streak</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                {WEEK_DAYS.map((day, i) => {
-                  const done = COMPLETED_DAYS.includes(i);
-                  return (
-                    <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: done ? 13 : 10,
-                        background: done ? 'rgba(249,115,22,0.22)' : 'rgba(255,255,255,0.04)',
-                        border: done ? '1.5px solid rgba(249,115,22,0.5)' : '1px solid rgba(255,255,255,0.07)',
-                        color: done ? '#f97316' : 'rgba(255,255,255,0.25)',
-                        marginBottom: 4,
-                      }}>
-                        {done ? '👁️' : '·'}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🎯 Daily Trivia</h3>
+                  <button
+                    onClick={handleStartTrivia}
+                    disabled={triviaLoading}
+                    style={{
+                      padding: '5px 14px',
+                      borderRadius: 10,
+                      background: triviaLoading ? 'rgba(249,115,22,0.06)' : 'rgba(249,115,22,0.12)',
+                      border: '1.5px solid rgba(249,115,22,0.38)',
+                      color: '#f97316',
+                      fontSize: 11,
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      cursor: triviaLoading ? 'not-allowed' : 'pointer',
+                      opacity: triviaLoading ? 0.6 : 1,
+                      transition: 'opacity 0.15s',
+                    }}
+                  >
+                    {triviaLoading ? '…' : triviaQ ? 'New ↺' : 'Start'}
+                  </button>
+                </div>
+
+                {/* Question area */}
+                {!triviaQ ? (
+                  <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--color-muted)', marginBottom: 16 }}>
+                    Test your knowledge with a random market question.
+                  </p>
+                ) : (
+                  <div style={{ marginBottom: 16 }}>
+                    {triviaQ.lesson_title && (
+                      <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', marginBottom: 8, opacity: 0.7 }}>
+                        {triviaQ.lesson_emoji} {triviaQ.lesson_title}
                       </div>
-                      <div style={{
-                        fontSize: 9,
-                        fontFamily: 'var(--font-mono)',
-                        color: done ? 'rgba(249,115,22,0.7)' : 'rgba(255,255,255,0.3)',
-                      }}>
-                        {day}
-                      </div>
+                    )}
+                    <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--color-text)', marginBottom: 10, fontWeight: 600 }}>
+                      {triviaQ.question}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {triviaQ.options.map((opt, i) => {
+                        const isCorrect  = triviaQ.correct_index === i;
+                        const isSelected = triviaSelected === i;
+                        let bg = 'rgba(255,255,255,0.04)';
+                        let border = '1px solid rgba(255,255,255,0.1)';
+                        let color = 'var(--color-muted)';
+                        if (triviaRevealed) {
+                          if (isCorrect)       { bg = 'rgba(34,197,94,0.13)';   border = '1px solid rgba(34,197,94,0.45)';  color = '#22c55e'; }
+                          else if (isSelected) { bg = 'rgba(239,68,68,0.10)';  border = '1px solid rgba(239,68,68,0.38)'; color = '#ef4444'; }
+                        } else if (isSelected) {
+                          bg = 'rgba(249,115,22,0.12)'; border = '1px solid rgba(249,115,22,0.45)'; color = '#f97316';
+                        }
+                        return (
+                          <button
+                            key={i}
+                            disabled={triviaRevealed}
+                            onClick={() => {
+                              if (triviaRevealed) return;
+                              setTriviaSelected(i);
+                              setTriviaRevealed(true);
+                            }}
+                            style={{
+                              textAlign: 'left',
+                              padding: '7px 10px',
+                              borderRadius: 8,
+                              background: bg,
+                              border,
+                              color,
+                              fontSize: 11,
+                              lineHeight: 1.4,
+                              cursor: triviaRevealed ? 'default' : 'pointer',
+                              transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+                              fontFamily: 'var(--font-sans)',
+                            }}
+                          >
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: 6 }}>
+                              {['A', 'B', 'C', 'D'][i]}.
+                            </span>
+                            {opt}
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                    {triviaRevealed && (
+                      <div style={{
+                        marginTop: 10,
+                        padding: '8px 11px',
+                        borderRadius: 8,
+                        background: 'rgba(249,115,22,0.07)',
+                        border: '1px solid rgba(249,115,22,0.2)',
+                        fontSize: 11,
+                        color: 'var(--color-muted)',
+                        lineHeight: 1.55,
+                      }}>
+                        💡 {triviaQ.explanation}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Streak row */}
+                <div style={{
+                  borderRadius: 14,
+                  background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.05))',
+                  border: '1px solid rgba(249,115,22,0.18)',
+                  padding: '12px 12px 10px',
+                }}>
+                  <div style={{
+                    fontSize: 10,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'rgba(249,115,22,0.7)',
+                    marginBottom: 10,
+                    letterSpacing: '0.07em',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                    <span>THIS WEEK</span>
+                    <span>🔥 {streak} day streak</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    {WEEK_DAYS.map((day, i) => {
+                      const done = weekDots[i];
+                      return (
+                        <div key={i} style={{ textAlign: 'center' }}>
+                          <div style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: done ? 13 : 10,
+                            background: done ? 'rgba(249,115,22,0.22)' : 'rgba(255,255,255,0.04)',
+                            border: done ? '1.5px solid rgba(249,115,22,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                            color: done ? '#f97316' : 'rgba(255,255,255,0.25)',
+                            marginBottom: 4,
+                          }}>
+                            {done ? '✓' : '·'}
+                          </div>
+                          <div style={{
+                            fontSize: 9,
+                            fontFamily: 'var(--font-mono)',
+                            color: done ? 'rgba(249,115,22,0.7)' : 'rgba(255,255,255,0.3)',
+                          }}>
+                            {day}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Tip of the day */}
           <div style={{

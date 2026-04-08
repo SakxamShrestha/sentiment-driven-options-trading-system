@@ -71,6 +71,8 @@ export const api = {
     get<LunarCrushBuzz>(`/api/lunarcrush/${encodeURIComponent(symbol)}`),
   getDailyTip: () =>
     get<{ quote: string; author: string }>('/api/learn/tip'),
+  getDailyTrivia: () =>
+    get<LearnQuestion & { lesson_title?: string; lesson_emoji?: string }>('/api/learn/daily-trivia'),
 
   // Learn platform
   getLearnLessons: (userId?: string) =>
