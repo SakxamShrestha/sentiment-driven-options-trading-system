@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import QuizModal from '../components/learn/QuizModal';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { LearnQuestion, LearnProgress } from '../types';
+import type { LearnLesson, LearnQuestion, LearnProgress } from '../types';
 
 // ─── Glossary Data — add your terms here ──────────────────────────────────────
 // Each entry: { term, definition, emoji }
@@ -351,76 +351,12 @@ function DictCard({ term, definition, emoji }: { term: string; definition: strin
   );
 }
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const COURSES = [
-  {
-    id: 1,
-    title: 'Investing 101',
-    instructor: 'Brandon Beavis',
-    description: 'Start your investing journey with the fundamentals every trader needs to know.',
-    modules: 5,
-    duration: '1h 30m',
-    gradient: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
-    accentColor: '#818cf8',
-    emoji: '📈',
-  },
-  {
-    id: 2,
-    title: 'Sentiment Analysis',
-    instructor: 'TradeSent Team',
-    description: 'Master AI-driven sentiment scoring with FinBERT and Llama 3 models.',
-    modules: 4,
-    duration: '55m',
-    gradient: 'linear-gradient(160deg, #0c0a09 0%, #1c0a00 50%, #431407 100%)',
-    accentColor: '#fb923c',
-    emoji: '🧠',
-  },
-  {
-    id: 3,
-    title: 'Technical Analysis',
-    instructor: 'Sarah Chen',
-    description: 'Read candlestick charts, identify trends, and spot key support levels.',
-    modules: 6,
-    duration: '2h',
-    gradient: 'linear-gradient(160deg, #042f2e 0%, #065f46 50%, #064e3b 100%)',
-    accentColor: '#34d399',
-    emoji: '📊',
-  },
-  {
-    id: 4,
-    title: 'Options Fundamentals',
-    instructor: 'Marcus Webb',
-    description: 'Calls, puts, strikes, expiry — decode the language of options trading.',
-    modules: 7,
-    duration: '3h',
-    gradient: 'linear-gradient(160deg, #0c0a00 0%, #1a1200 50%, #3d2b00 100%)',
-    accentColor: '#fbbf24',
-    emoji: '⚡',
-  },
-  {
-    id: 5,
-    title: 'Risk Management',
-    instructor: 'Elena Ross',
-    description: 'Position sizing, stop losses, and circuit breakers for consistent returns.',
-    modules: 3,
-    duration: '45m',
-    gradient: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a2e 50%, #2e1065 100%)',
-    accentColor: '#c084fc',
-    emoji: '🛡️',
-  },
-  {
-    id: 6,
-    title: 'Momentum Backtesting',
-    instructor: 'TradeSent Team',
-    description: 'Replay historical bars to validate your strategies before going live.',
-    modules: 4,
-    duration: '1h 10m',
-    gradient: 'linear-gradient(160deg, #0a1628 0%, #0d2137 50%, #0c3560 100%)',
-    accentColor: '#60a5fa',
-    emoji: '🔁',
-  },
-];
+function lessonGradient(iconBg: string): string {
+  // Build a dark-to-color gradient from the icon_bg hex
+  return `linear-gradient(160deg, #0a1020 0%, ${iconBg}44 55%, ${iconBg}99 100%)`;
+}
 
 const EARN_ENTITIES = [
   {
@@ -939,21 +875,29 @@ function useHover() {
 }
 
 // ─── Course Card ──────────────────────────────────────────────────────────────
-function CourseCard({ course }: { course: typeof COURSES[0] }) {
+function CourseCard({
+  lesson,
+  onStartQuiz,
+}: {
+  lesson: LearnLesson;
+  onStartQuiz: (id: number, title: string, emoji: string, iconBg: string) => void;
+}) {
   const { hovered, onMouseEnter, onMouseLeave } = useHover();
   const [playHovered, setPlayHovered] = useState(false);
+  const gradient = lessonGradient(lesson.icon_bg);
 
   return (
     <div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onClick={() => onStartQuiz(lesson.id, lesson.title, lesson.emoji, lesson.icon_bg)}
       style={{
         flexShrink: 0,
         width: 196,
         borderRadius: 20,
         overflow: 'hidden',
         background: 'var(--color-card)',
-        border: '1px solid var(--color-border)',
+        border: `1px solid ${lesson.completed ? lesson.icon_bg + '55' : 'var(--color-border)'}`,
         cursor: 'pointer',
         transform: hovered ? 'translateY(-5px) scale(1.015)' : 'translateY(0) scale(1)',
         boxShadow: hovered ? '0 16px 48px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
@@ -962,26 +906,46 @@ function CourseCard({ course }: { course: typeof COURSES[0] }) {
     >
       {/* Art panel */}
       <div style={{
-        height: 228,
-        background: course.gradient,
+        height: 200,
+        background: gradient,
         position: 'relative',
         display: 'flex',
         alignItems: 'flex-end',
         padding: 14,
         overflow: 'hidden',
       }}>
-        {/* Decorative large emoji */}
+        {/* Completion badge */}
+        {lesson.completed && (
+          <div style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            background: lesson.icon_bg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            zIndex: 2,
+          }}>
+            ✓
+          </div>
+        )}
+
+        {/* Decorative emoji */}
         <div style={{
           position: 'absolute',
           top: 14,
-          right: 14,
+          right: lesson.completed ? 42 : 14,
           fontSize: 52,
           opacity: 0.22,
           transform: hovered ? 'scale(1.12) rotate(6deg)' : 'scale(1) rotate(0deg)',
           transition: 'transform 0.3s ease',
           userSelect: 'none',
         }}>
-          {course.emoji}
+          {lesson.emoji}
         </div>
 
         {/* Stats badge */}
@@ -1000,13 +964,14 @@ function CourseCard({ course }: { course: typeof COURSES[0] }) {
           border: '1px solid rgba(255,255,255,0.12)',
           letterSpacing: '0.02em',
         }}>
-          {course.modules} Modules · {course.duration}
+          {lesson.quiz_count} Q · {lesson.duration}
         </div>
 
         {/* Play button */}
         <button
-          onMouseEnter={() => setPlayHovered(true)}
+          onMouseEnter={(e) => { e.stopPropagation(); setPlayHovered(true); }}
           onMouseLeave={() => setPlayHovered(false)}
+          onClick={(e) => { e.stopPropagation(); onStartQuiz(lesson.id, lesson.title, lesson.emoji, lesson.icon_bg); }}
           style={{
             width: 42,
             height: 42,
@@ -1030,31 +995,17 @@ function CourseCard({ course }: { course: typeof COURSES[0] }) {
       </div>
 
       {/* Text body */}
-      <div style={{ padding: '14px 16px 18px' }}>
-        <div style={{
-          fontSize: 13,
-          fontWeight: 700,
-          lineHeight: 1.35,
-          marginBottom: 5,
-          color: 'var(--color-text)',
-        }}>
-          {course.title}
+      <div style={{ padding: '14px 16px 16px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, marginBottom: 5, color: 'var(--color-text)' }}>
+          {lesson.title}
         </div>
-        <div style={{
-          fontSize: 11,
-          fontFamily: 'var(--font-mono)',
-          color: course.accentColor,
-          marginBottom: 9,
-          opacity: 0.9,
-        }}>
-          by {course.instructor}
-        </div>
-        <div style={{
-          fontSize: 11.5,
-          lineHeight: 1.55,
-          color: 'var(--color-muted)',
-        }}>
-          {course.description}
+        {lesson.completed && lesson.best_score !== null && lesson.best_score !== undefined && (
+          <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: lesson.icon_bg, marginBottom: 4 }}>
+            Best: {lesson.best_score}/{lesson.quiz_count} · {Math.round((lesson.best_score / lesson.quiz_count) * 100)}%
+          </div>
+        )}
+        <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)' }}>
+          {lesson.attempts ?? 0} attempt{(lesson.attempts ?? 0) !== 1 ? 's' : ''}
         </div>
       </div>
     </div>
@@ -1232,6 +1183,7 @@ export default function Learn() {
   const [quizLesson, setQuizLesson] = useState<{ id: number; title: string; emoji: string; iconBg: string } | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<LearnQuestion[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
+  const [lessons, setLessons] = useState<LearnLesson[]>([]);
   const [completedLessons, setCompletedLessons] = useState<Set<number>>(new Set());
   const [progressData, setProgressData] = useState<LearnProgress[]>([]);
   const [tip, setTip] = useState<{ quote: string; author: string } | null>(null);
@@ -1246,7 +1198,13 @@ export default function Learn() {
     api.getDailyTip().then(setTip).catch(() => {});
   }, []);
 
-  // Load user progress on mount so lesson cards show completion badges
+  // Load lessons + user progress on mount
+  useEffect(() => {
+    api.getLearnLessons(user?.uid ?? undefined)
+      .then(setLessons)
+      .catch(() => {});
+  }, [user?.uid]);
+
   useEffect(() => {
     if (!user?.uid) return;
     api.getLearnProgress(user.uid)
@@ -1379,7 +1337,22 @@ export default function Learn() {
                 msOverflowStyle: 'none',
               } as React.CSSProperties}
             >
-              {COURSES.map(course => <CourseCard key={course.id} course={course} />)}
+              {lessons.length === 0
+                ? [...Array(6)].map((_, i) => (
+                    <div key={i} style={{
+                      flexShrink: 0, width: 196, height: 260, borderRadius: 20,
+                      background: 'var(--color-hover)', opacity: 0.5,
+                      animation: 'shimmer 1.5s infinite',
+                    }} />
+                  ))
+                : lessons.map(lesson => (
+                    <CourseCard
+                      key={lesson.id}
+                      lesson={{ ...lesson, completed: completedLessons.has(lesson.id) }}
+                      onStartQuiz={handleStartQuiz}
+                    />
+                  ))
+              }
             </div>
           </section>
 

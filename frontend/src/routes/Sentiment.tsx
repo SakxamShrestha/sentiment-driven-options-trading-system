@@ -577,9 +577,6 @@ export default function Sentiment() {
               <PanelLabel>Analysis Stats</PanelLabel>
               <div className="grid grid-cols-2 gap-2">
                 <StatCell label="Articles" value={result.article_count} />
-                <StatCell label="Model"
-                  value={result.model_used === 'claude-haiku' ? 'Claude' : result.model_used === 'groq-llama3.3-70b' ? 'Groq 70B' : result.model_used}
-                  color="var(--color-accent)" />
                 <StatCell label="Confidence" value={`${Math.round(result.confidence * 100)}%`}
                   color={result.confidence >= 0.7 ? 'var(--color-gain)' : 'var(--color-muted)'} />
                 <StatCell label="Horizon" value={result.dominant_horizon?.replace('-', ' ') ?? '–'} />
