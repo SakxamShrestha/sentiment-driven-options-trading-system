@@ -4,13 +4,10 @@ import { api } from '../services/api';
 import { useSentimentStore } from '../stores/useSentimentStore';
 import { useToastStore } from '../stores/useToastStore';
 import { Spinner } from '../components/shared/Spinner';
-import { Badge } from '../components/shared/Badge';
 import { fmtDateShort } from '../lib/formatters';
-import type { SentimentResult, LunarCrushBuzz } from '../types';
+import type { CompositeSentimentResult, CompositeArticle, LunarCrushBuzz } from '../types';
 
-type Model = 'finbert' | 'llama3';
-
-/* ── Sentiment arc gauge ──────────────────────────────────────────── */
+/* ── Sentiment arc gauge ─────────────────────────────────────────────── */
 function SentimentGauge({ score }: { score: number }) {
   const cx = 100, cy = 96, r = 72, sw = 10;
   const s = Math.max(-1, Math.min(1, score));
@@ -18,12 +15,12 @@ function SentimentGauge({ score }: { score: number }) {
     const a = ((1 - v) / 2) * Math.PI;
     return { x: +(cx + r * Math.cos(a)).toFixed(1), y: +(cy - r * Math.sin(a)).toFixed(1) };
   };
-  const left  = toPoint(-1);
-  const right = toPoint(1);
-  const mid   = toPoint(0);
+  const left   = toPoint(-1);
+  const right  = toPoint(1);
+  const mid    = toPoint(0);
   const needle = toPoint(s);
-  const pos = s >= 0;
-  const col = pos ? 'var(--color-gain)' : 'var(--color-loss)';
+  const pos    = s >= 0;
+  const col    = s >= 0.2 ? 'var(--color-gain)' : s <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)';
   const filledArc = s === 0 ? null :
     `M ${mid.x} ${mid.y} A ${r} ${r} 0 0 ${pos ? 1 : 0} ${needle.x} ${needle.y}`;
 
@@ -57,32 +54,98 @@ function SentimentGauge({ score }: { score: number }) {
   );
 }
 
-/* ── Distribution bar ─────────────────────────────────────────────── */
-function DistributionBar({ articles }: { articles: Array<{ score?: number | null }> }) {
-  const total = articles.length;
-  if (total === 0) return null;
-  const bull = articles.filter(a => (a.score ?? 0) >= 0.2).length;
-  const bear = articles.filter(a => (a.score ?? 0) <= -0.2).length;
-  const neut = total - bull - bear;
+/* ── Score bar (news / social) ───────────────────────────────────────── */
+function ScoreBar({ label, score, weight }: { label: string; score: number | null; weight: string }) {
+  if (score === null) return null;
+  const pct = Math.round(((score + 1) / 2) * 100);
+  const col = score >= 0.2 ? 'var(--color-gain)' : score <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)';
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-3 text-[10px] font-mono tracking-wider">
-        <span style={{ color: 'var(--color-gain)' }}>{bull} BULLISH</span>
-        <span className="text-muted opacity-30">·</span>
-        <span className="text-muted">{neut} NEUTRAL</span>
-        <span className="text-muted opacity-30">·</span>
-        <span style={{ color: 'var(--color-loss)' }}>{bear} BEARISH</span>
+      <div className="flex items-center justify-between text-[10px] font-mono">
+        <span className="text-muted tracking-widest uppercase">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-muted opacity-50">{weight}</span>
+          <span className="font-bold tabular-nums" style={{ color: col }}>
+            {score >= 0 ? '+' : ''}{score.toFixed(3)}
+          </span>
+        </div>
       </div>
-      <div className="flex h-1.5 overflow-hidden" style={{ borderRadius: 1 }}>
-        {bull > 0 && <div style={{ width: `${(bull / total) * 100}%`, background: 'var(--color-gain)' }} />}
-        {neut > 0 && <div style={{ width: `${(neut / total) * 100}%`, background: 'var(--color-border)' }} />}
-        {bear > 0 && <div style={{ width: `${(bear / total) * 100}%`, background: 'var(--color-loss)' }} />}
+      <div className="relative h-1.5 w-full overflow-hidden" style={{ background: 'var(--color-hover)', borderRadius: 1 }}>
+        {/* Center marker */}
+        <div className="absolute top-0 bottom-0 w-px" style={{ left: '50%', background: 'var(--color-border)' }} />
+        {/* Fill from center */}
+        {score >= 0 ? (
+          <div
+            className="absolute top-0 bottom-0 transition-all duration-700"
+            style={{ left: '50%', width: `${pct - 50}%`, background: col }}
+          />
+        ) : (
+          <div
+            className="absolute top-0 bottom-0 transition-all duration-700"
+            style={{ right: '50%', width: `${50 - pct}%`, background: col }}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-/* ── Sidebar stat cell ────────────────────────────────────────────── */
+/* ── Confidence ring ─────────────────────────────────────────────────── */
+function ConfidenceRing({ confidence }: { confidence: number }) {
+  const r = 18, circ = 2 * Math.PI * r;
+  const fill = circ * confidence;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width={48} height={48} viewBox="0 0 48 48">
+        <circle cx={24} cy={24} r={r} fill="none" stroke="var(--color-border)" strokeWidth={3} />
+        <circle
+          cx={24} cy={24} r={r} fill="none"
+          stroke="var(--color-accent)" strokeWidth={3}
+          strokeLinecap="round"
+          strokeDasharray={`${fill} ${circ - fill}`}
+          strokeDashoffset={circ / 4}
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+        <text x={24} y={28} textAnchor="middle" fontSize={10} fontFamily="monospace" fontWeight="bold" fill="var(--color-accent)">
+          {Math.round(confidence * 100)}
+        </text>
+      </svg>
+      <span className="text-[9px] font-mono text-muted tracking-widest uppercase">Confidence</span>
+    </div>
+  );
+}
+
+/* ── Catalyst tag ────────────────────────────────────────────────────── */
+function CatalystTag({ text }: { text: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 text-[10px] font-mono tracking-wide border"
+      style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', borderRadius: 2, opacity: 0.85 }}
+    >
+      {text}
+    </span>
+  );
+}
+
+/* ── Horizon badge ───────────────────────────────────────────────────── */
+function HorizonBadge({ horizon }: { horizon: string | null }) {
+  if (!horizon) return null;
+  const map: Record<string, string> = {
+    'short-term': 'S',
+    'medium-term': 'M',
+    'long-term': 'L',
+  };
+  return (
+    <span
+      className="text-[9px] font-mono font-bold px-2 py-0.5 tracking-widest border"
+      style={{ borderColor: 'var(--color-border)', borderRadius: 2, color: 'var(--color-muted)' }}
+    >
+      {map[horizon] ?? 'S'} · {horizon.toUpperCase()}
+    </span>
+  );
+}
+
+/* ── Stat cell ───────────────────────────────────────────────────────── */
 function StatCell({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) {
   return (
     <div className="p-2.5" style={{ background: 'var(--color-hover)', borderRadius: 1 }}>
@@ -94,7 +157,7 @@ function StatCell({ label, value, color }: { label: string; value: React.ReactNo
   );
 }
 
-/* ── Panel section label ──────────────────────────────────────────── */
+/* ── Panel label ─────────────────────────────────────────────────────── */
 function PanelLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
@@ -105,16 +168,92 @@ function PanelLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ── Article row ─────────────────────────────────────────────────────── */
+function ArticleRow({ article, index }: { article: CompositeArticle; index: number }) {
+  const s   = article.score ?? 0;
+  const col = s >= 0.2 ? 'var(--color-gain)' : s <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.28 + index * 0.04, duration: 0.28, ease: 'easeOut' }}
+      className="relative px-5 py-4 border-b border-border cursor-pointer group transition-colors duration-150"
+      onClick={() => article.url && window.open(article.url, '_blank')}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-hover)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
+    >
+      {/* Score gutter */}
+      <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: col, opacity: 0.7 }} />
+
+      <div className="flex items-start gap-4">
+        {/* Index */}
+        <div className="text-[10px] font-mono text-muted tabular-nums shrink-0 pt-0.5 w-7 text-right select-none">
+          {String(index + 1).padStart(2, '0')}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div className="text-sm leading-snug line-clamp-2">
+            {article.headline || '(no headline)'}
+          </div>
+
+          {/* Reasoning */}
+          {article.reasoning && (
+            <div className="text-[10px] text-muted leading-relaxed line-clamp-2 italic">
+              {article.reasoning}
+            </div>
+          )}
+
+          {/* Catalysts */}
+          {article.catalysts.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {article.catalysts.map((c, i) => <CatalystTag key={i} text={c} />)}
+            </div>
+          )}
+
+          {/* Meta row */}
+          <div className="flex gap-2 flex-wrap items-center text-[10px] font-mono text-muted">
+            <span className="px-1.5 py-px border uppercase tracking-wide"
+              style={{ borderColor: 'var(--color-border)', borderRadius: 1 }}>
+              {article.source}
+            </span>
+            <HorizonBadge horizon={article.impact_horizon} />
+            {article.created_at && <span>{fmtDateShort(article.created_at)}</span>}
+            {article.url && (
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                style={{ color: 'var(--color-accent)' }}>
+                ↗ OPEN
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Score + confidence */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div
+            className="text-sm font-black font-mono tabular-nums tracking-tight"
+            style={{ color: col }}
+          >
+            {(s >= 0 ? '+' : '') + s.toFixed(3)}
+          </div>
+          <div className="text-[9px] font-mono text-muted tabular-nums">
+            {Math.round((article.confidence ?? 0) * 100)}% conf
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════════ */
 export default function Sentiment() {
   const { cbTripped, setCbTripped } = useSentimentStore();
   const toast = useToastStore((s) => s.show);
-  const [model, setModel]     = useState<Model>('finbert');
-  const [ticker, setTicker]   = useState('');
-  const [result, setResult]   = useState<SentimentResult | null>(null);
-  const [buzz, setBuzz]       = useState<LunarCrushBuzz | null>(null);
+  const [ticker, setTicker]     = useState('');
+  const [result, setResult]     = useState<CompositeSentimentResult | null>(null);
+  const [buzz, setBuzz]         = useState<LunarCrushBuzz | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [liveSent, setLiveSent]   = useState<Record<string, unknown> | null>(null);
 
   const loadCb = useCallback(async () => {
     try {
@@ -138,39 +277,35 @@ export default function Sentiment() {
     setResult(null);
     setBuzz(null);
     try {
-      const d = model === 'llama3'
-        ? await api.getSentimentLlama(t, 6)
-        : await api.getSentiment(t, 12);
+      const d = await api.getSentimentComposite(t, 10);
       setResult(d);
       api.getLunarCrush(t).then(setBuzz).catch(() => {});
-    } catch { /* ignore */ }
+    } catch { toast('Analysis failed', 'error'); }
     setAnalyzing(false);
   };
 
-  useEffect(() => {
-    loadCb();
-    api.getLiveSentiment().then(setLiveSent).catch(() => {});
-  }, [loadCb]);
+  useEffect(() => { loadCb(); }, [loadCb]);
 
-  const avg          = result?.average_score;
-  const isPositive   = avg !== null && avg !== undefined && avg >= 0;
-  const chipVariant: 'gain' | 'loss' | 'neutral' =
-    avg === null || avg === undefined ? 'neutral' : avg >= 0.2 ? 'gain' : avg <= -0.2 ? 'loss' : 'neutral';
-  const chipLabel    =
-    avg === null || avg === undefined ? 'NO DATA' : avg >= 0.2 ? 'BULLISH' : avg <= -0.2 ? 'BEARISH' : 'NEUTRAL';
+  const score      = result?.composite_score;
+  const label      = score === null || score === undefined ? 'NO DATA'
+    : score >= 0.2 ? 'BULLISH' : score <= -0.2 ? 'BEARISH' : 'NEUTRAL';
+  const labelColor = score === null || score === undefined ? 'var(--color-muted)'
+    : score >= 0.2 ? 'var(--color-gain)' : score <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)';
 
-  const liveScore = liveSent ? parseFloat(String(liveSent.score ?? 0)) : null;
-  const livePos   = liveScore !== null && liveScore >= 0;
-  const hasLive   = liveSent && Object.keys(liveSent).length > 0;
+  const modelLabel = result?.model_used === 'claude-haiku'
+    ? 'Claude Haiku · Anthropic'
+    : result?.model_used === 'groq-llama3.3-70b'
+    ? 'Llama 3.3 70B · Groq'
+    : result?.model_used ?? '–';
 
   return (
     <div className="w-full flex flex-col gap-5">
 
-      {/* ── PAGE HEADER ─────────────────────────────────────────────── */}
+      {/* ── PAGE HEADER ───────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[10px] font-mono tracking-[0.28em] text-muted uppercase mb-1">
-            TradeSent.AI · Signal Layer
+            TradeSent.AI · Composite Signal
           </p>
           <h1 className="text-2xl font-black font-mono tracking-tighter leading-none">
             SENTIMENT{' '}
@@ -214,20 +349,16 @@ export default function Sentiment() {
           transition: 'border-color 0.4s ease',
         }}
       >
-        {/* Radar sweep — shown while analyzing */}
+        {/* Radar sweep */}
         <AnimatePresence>
           {analyzing && (
             <motion.div
               key="sweep"
               className="pointer-events-none"
               style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                height: 1,
+                position: 'absolute', left: 0, right: 0, height: 1,
                 background: 'linear-gradient(90deg, transparent 0%, var(--color-accent) 50%, transparent 100%)',
-                zIndex: 20,
-                opacity: 0.75,
+                zIndex: 20, opacity: 0.75,
               }}
               initial={{ top: 0 }}
               animate={{ top: ['0%', '100%'] }}
@@ -236,53 +367,15 @@ export default function Sentiment() {
           )}
         </AnimatePresence>
 
-        {/* Model selector — tab bar */}
-        <div className="flex border-b border-border">
-          {(
-            [
-              { id: 'finbert' as Model, label: 'FinBERT', sub: 'LOCAL · HuggingFace' },
-              { id: 'llama3'  as Model, label: 'Llama 3', sub: 'CLOUD · Groq API'    },
-            ] as const
-          ).map((m) => {
-            const active = model === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => setModel(m.id)}
-                className="flex items-center gap-3 px-5 py-3 border-r border-border transition-all duration-200"
-                style={{
-                  background: active ? 'rgba(245,158,11,0.07)' : 'transparent',
-                  borderBottom: active ? '2px solid var(--color-accent)' : '2px solid transparent',
-                  marginBottom: -1,
-                  cursor: 'pointer',
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full transition-all duration-200"
-                  style={{ background: active ? 'var(--color-accent)' : 'var(--color-border)' }}
-                />
-                <div className="text-left">
-                  <div className="text-xs font-mono font-bold tracking-wide"
-                    style={{ color: active ? 'var(--color-accent)' : 'var(--color-muted)' }}>
-                    {m.label}
-                  </div>
-                  <div className="text-[9px] font-mono text-muted tracking-widest">{m.sub}</div>
-                </div>
-                {active && (
-                  <span
-                    className="text-[8px] font-mono font-black tracking-widest px-1.5 py-0.5 ml-1"
-                    style={{ background: 'var(--color-accent)', color: '#09090b', borderRadius: 1 }}
-                  >
-                    ACTIVE
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Spacer + status pill */}
-          <div className="flex-1" />
-          <div className="flex items-center px-4 gap-1.5 text-[10px] font-mono text-muted select-none">
+        {/* Top bar: model indicator + status */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-2.5">
+          <div className="flex items-center gap-2 text-[10px] font-mono text-muted">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--color-accent)' }} />
+            <span className="tracking-widest uppercase">
+              {result ? modelLabel : 'Claude · Groq Fallback · LunarCrush'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted select-none">
             <span className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ background: analyzing ? 'var(--color-accent)' : 'var(--color-muted)', opacity: analyzing ? 1 : 0.4 }} />
             {analyzing ? `SCANNING ${ticker.toUpperCase()}…` : 'SIGNAL READY'}
@@ -291,22 +384,16 @@ export default function Sentiment() {
 
         {/* Input row */}
         <div className="p-5 flex items-center gap-4">
-          {/* Terminal prompt prefix */}
           <div className="font-mono shrink-0 flex items-center gap-2 select-none opacity-70">
             <span className="text-lg font-bold leading-none" style={{ color: 'var(--color-accent)' }}>❯</span>
             <span className="text-[10px] text-muted tracking-widest">SCAN</span>
           </div>
-
-          {/* Ticker — dramatic full-width input */}
           <input
             className="flex-1 bg-transparent border-0 border-b-2 font-mono tracking-[0.25em] uppercase outline-none transition-all duration-200 placeholder:text-muted/30 placeholder:normal-case placeholder:tracking-normal"
             style={{
-              fontSize: '1.85rem',
-              fontWeight: 800,
-              height: '3.25rem',
+              fontSize: '1.85rem', fontWeight: 800, height: '3.25rem',
               borderBottomColor: ticker ? 'var(--color-accent)' : 'var(--color-border)',
-              color: 'var(--color-text)',
-              minWidth: 0,
+              color: 'var(--color-text)', minWidth: 0,
             }}
             placeholder="TICKER"
             value={ticker}
@@ -316,155 +403,125 @@ export default function Sentiment() {
             autoComplete="off"
             autoCapitalize="characters"
           />
-
-          {/* Analyze button */}
           <button
             onClick={analyze}
             disabled={analyzing || !ticker.trim()}
             className="terminal-btn shrink-0 px-6 tracking-widest disabled:opacity-30 flex items-center gap-2"
             style={{ height: '2.75rem', fontSize: 11 }}
           >
-            {analyzing
-              ? <><Spinner className="w-3 h-3" /> SCANNING</>
-              : 'ANALYZE →'
-            }
+            {analyzing ? <><Spinner className="w-3 h-3" /> SCANNING</> : 'ANALYZE →'}
           </button>
         </div>
       </div>
 
-      {/* ── RESULTS + SIDEBAR ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 items-start">
+      {/* ── RESULTS ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
 
-        {/* ╔══ LEFT ══════════════════════════════════════════════════════╗ */}
+        {/* ╔══ LEFT ══════════════════════════════════════════════╗ */}
         <div className="flex flex-col gap-4">
-
           <AnimatePresence mode="wait">
 
-            {/* SCANNING skeleton */}
+            {/* Scanning skeleton */}
             {analyzing && (
-              <motion.div
-                key="skeleton"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="terminal-card p-8 flex flex-col gap-4"
-              >
+              <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="terminal-card p-8 flex flex-col gap-4">
                 <div className="font-mono text-[10px] tracking-[0.4em] text-muted uppercase animate-pulse">
-                  {model === 'llama3' ? 'Llama 3 · Groq' : 'FinBERT · Local'} &mdash; Scanning {ticker.toUpperCase()}
+                  Composite Analysis — Scanning {ticker.toUpperCase()}…
                 </div>
-                {[...Array(4)].map((_, i) => (
-                  <div key={i}
-                    className="w-full rounded-sm animate-shimmer"
-                    style={{ height: i === 0 ? 72 : 48, background: 'var(--color-hover)', animationDelay: `${i * 0.12}s` }}
-                  />
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="w-full rounded-sm animate-shimmer"
+                    style={{ height: i === 0 ? 80 : 40, background: 'var(--color-hover)', animationDelay: `${i * 0.1}s` }} />
                 ))}
               </motion.div>
             )}
 
-            {/* RESULT HERO */}
+            {/* Result hero */}
             {result && !analyzing && (
-              <motion.div
-                key="result-hero"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="terminal-card relative overflow-hidden"
-              >
+              <motion.div key="hero" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="terminal-card relative overflow-hidden">
+
                 {/* Ghost watermark */}
-                <div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
-                  aria-hidden
-                >
-                  <span
-                    className="font-black font-mono uppercase tracking-widest"
-                    style={{
-                      fontSize: 'clamp(4rem, 12vw, 8.5rem)',
-                      color: isPositive ? 'var(--color-gain)' : 'var(--color-loss)',
-                      opacity: 0.045,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chipLabel}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden" aria-hidden>
+                  <span className="font-black font-mono uppercase tracking-widest"
+                    style={{ fontSize: 'clamp(4rem, 12vw, 8.5rem)', color: labelColor, opacity: 0.04, whiteSpace: 'nowrap' }}>
+                    {label}
                   </span>
                 </div>
 
-                {/* Top sentinel stripe */}
-                <div
-                  className="absolute top-0 left-0 right-0 h-[2px]"
-                  style={{
-                    background: isPositive ? 'var(--color-gain)' : 'var(--color-loss)',
-                    transition: 'background 0.5s ease',
-                  }}
-                />
+                {/* Top color stripe */}
+                <div className="absolute top-0 left-0 right-0 h-[2px]"
+                  style={{ background: labelColor, transition: 'background 0.5s ease' }} />
 
                 <div className="relative z-10 p-6 flex flex-col gap-5">
-                  {/* Score + gauge */}
+
+                  {/* Score row */}
                   <div className="flex items-center gap-6 flex-wrap">
-                    <SentimentGauge score={avg ?? 0} />
-
-                    <div className="flex-1 min-w-0">
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.12, duration: 0.4 }}
-                        className="font-black font-mono tabular-nums tracking-tighter leading-none"
-                        style={{
-                          fontSize: 'clamp(2.8rem, 6.5vw, 4.5rem)',
-                          color: isPositive ? 'var(--color-gain)' : 'var(--color-loss)',
-                        }}
-                      >
-                        {avg !== null && avg !== undefined
-                          ? (avg >= 0 ? '+' : '') + avg.toFixed(3)
-                          : '–'}
-                      </motion.div>
-
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <Badge variant={chipVariant}>{chipLabel}</Badge>
-                        <span className="text-[10px] font-mono text-muted">{result.ticker}</span>
-                        <span className="text-muted opacity-30">·</span>
-                        <span className="text-[10px] font-mono text-muted">
-                          {result.count} article{result.count === 1 ? '' : 's'}
-                        </span>
-                        <span className="text-muted opacity-30">·</span>
-                        <span
-                          className="text-[10px] font-mono px-1.5 py-px border"
-                          style={{ borderColor: 'var(--color-border)', borderRadius: 2, color: 'var(--color-muted)' }}
+                    <SentimentGauge score={score ?? 0} />
+                    <div className="flex-1 min-w-0 flex flex-col gap-3">
+                      <div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.12, duration: 0.4 }}
+                          className="font-black font-mono tabular-nums tracking-tighter leading-none"
+                          style={{ fontSize: 'clamp(2.8rem, 6.5vw, 4.5rem)', color: labelColor }}
                         >
-                          {result.model === 'llama3' ? 'Llama 3 · Groq' : 'FinBERT · local'}
-                        </span>
+                          {score !== null && score !== undefined ? (score >= 0 ? '+' : '') + score.toFixed(3) : '–'}
+                        </motion.div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="text-[11px] font-mono font-black tracking-widest px-2 py-0.5"
+                            style={{ background: labelColor, color: '#09090b', borderRadius: 1 }}>
+                            {label}
+                          </span>
+                          <span className="text-[10px] font-mono text-muted">{result.ticker}</span>
+                          <span className="text-muted opacity-30">·</span>
+                          <span className="text-[10px] font-mono text-muted">{result.article_count} articles</span>
+                        </div>
+                      </div>
+
+                      {/* Signal breakdown bars */}
+                      <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                        <div className="text-[9px] font-mono text-muted tracking-widest uppercase mb-1">Signal Breakdown</div>
+                        <ScoreBar label="News" score={result.news_score} weight="85%" />
+                        {result.social_score !== null && (
+                          <ScoreBar label="Social" score={result.social_score} weight="15%" />
+                        )}
                       </div>
                     </div>
+
+                    <ConfidenceRing confidence={result.confidence} />
                   </div>
 
-                  {/* Threshold + distribution */}
-                  <div className="flex flex-col gap-2 pt-3 border-t border-border">
-                    <div className="text-[9px] font-mono text-muted tracking-wide">
-                      THRESHOLD — &lt;−0.2 bearish &nbsp;·&nbsp; ±0.2 neutral &nbsp;·&nbsp; &gt;+0.2 bullish
+                  {/* Catalysts */}
+                  {result.all_catalysts.length > 0 && (
+                    <div className="flex flex-col gap-2 pt-3 border-t border-border">
+                      <div className="text-[9px] font-mono text-muted tracking-widest uppercase">Key Catalysts</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.all_catalysts.map((c, i) => <CatalystTag key={i} text={c} />)}
+                      </div>
                     </div>
-                    <DistributionBar articles={result.articles} />
-                  </div>
+                  )}
+
+                  {/* Horizon */}
+                  {result.dominant_horizon && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono text-muted tracking-widest uppercase">Impact Horizon</span>
+                      <HorizonBadge horizon={result.dominant_horizon} />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
 
           </AnimatePresence>
 
-          {/* INTERCEPTS / articles */}
+          {/* Articles */}
           <AnimatePresence>
             {result && !analyzing && result.articles.length > 0 && (
-              <motion.div
-                key="intercepts"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.22 }}
-                className="terminal-card overflow-hidden"
-              >
-                {/* Panel header */}
-                <div
-                  className="px-5 py-3 flex items-center justify-between border-b border-border"
-                  style={{ background: 'var(--color-hover)' }}
-                >
+              <motion.div key="articles" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+                className="terminal-card overflow-hidden">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-border"
+                  style={{ background: 'var(--color-hover)' }}>
                   <PanelLabel>Intercepts · {result.articles.length}</PanelLabel>
                   <div className="flex items-center gap-3 text-[9px] font-mono tracking-widest">
                     <span style={{ color: 'var(--color-gain)' }}>
@@ -475,93 +532,22 @@ export default function Sentiment() {
                     </span>
                   </div>
                 </div>
-
-                {/* Rows */}
                 <div>
-                  {result.articles.map((a, i) => {
-                    const s   = typeof a.score === 'number' ? a.score : 0;
-                    const pos = s >= 0;
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.28 + i * 0.045, duration: 0.28, ease: 'easeOut' }}
-                        className="relative flex items-start gap-4 px-5 py-3.5 border-b border-border cursor-pointer group transition-colors duration-150"
-                        onClick={() => a.url && window.open(a.url, '_blank')}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLElement).style.background = 'var(--color-hover)';
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLElement).style.background = '';
-                        }}
-                      >
-                        {/* Score gutter bar */}
-                        <div
-                          className="absolute left-0 top-0 bottom-0 w-[2px]"
-                          style={{ background: pos ? 'var(--color-gain)' : 'var(--color-loss)', opacity: 0.6 }}
-                        />
-
-                        {/* Row index */}
-                        <div className="text-[10px] font-mono text-muted tabular-nums shrink-0 pt-0.5 w-7 text-right select-none">
-                          {String(i + 1).padStart(2, '0')}
-                        </div>
-
-                        {/* Headline + meta */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm leading-snug mb-1.5 line-clamp-2">
-                            {a.headline || '(no headline)'}
-                          </div>
-                          <div className="flex gap-2 flex-wrap items-center text-[10px] font-mono text-muted">
-                            <span
-                              className="px-1.5 py-px border uppercase tracking-wide"
-                              style={{ borderColor: 'var(--color-border)', borderRadius: 1 }}
-                            >
-                              {a.source}
-                            </span>
-                            {a.created_at && <span>{fmtDateShort(a.created_at)}</span>}
-                            {a.url && (
-                              <span
-                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                                style={{ color: 'var(--color-accent)' }}
-                              >
-                                ↗ OPEN
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Score chip */}
-                        <div
-                          className="text-sm font-black font-mono tabular-nums shrink-0 pt-0.5 tracking-tight"
-                          style={{ color: pos ? 'var(--color-gain)' : 'var(--color-loss)' }}
-                        >
-                          {typeof a.score === 'number'
-                            ? (s >= 0 ? '+' : '') + s.toFixed(3)
-                            : '–'}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {result.articles.map((a, i) => (
+                    <ArticleRow key={a.article_id || i} article={a} index={i} />
+                  ))}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* EMPTY STATE */}
+          {/* Empty state */}
           <AnimatePresence>
             {!result && !analyzing && (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="terminal-card py-24 flex flex-col items-center gap-3"
-              >
-                <div
-                  className="w-12 h-12 border flex items-center justify-center"
-                  style={{ borderColor: 'var(--color-border)', borderRadius: 2, opacity: 0.2 }}
-                >
+              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="terminal-card py-24 flex flex-col items-center gap-3">
+                <div className="w-12 h-12 border flex items-center justify-center"
+                  style={{ borderColor: 'var(--color-border)', borderRadius: 2, opacity: 0.2 }}>
                   <svg className="w-6 h-6" style={{ color: 'var(--color-accent)' }}
                     fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round"
@@ -571,82 +557,50 @@ export default function Sentiment() {
                 <p className="font-mono text-[10px] text-muted tracking-[0.35em] uppercase">
                   Enter a ticker symbol above to begin
                 </p>
+                <p className="font-mono text-[9px] text-muted opacity-40 tracking-widest">
+                  Composite · LLM + Social signals
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
 
         </div>
-        {/* ╚═══════════════════════════════════════════════════════════════╝ */}
+        {/* ╚═══════════════════════════════════════════════════════╝ */}
 
-        {/* ╔══ RIGHT SIDEBAR ═══════════════════════════════════════════════╗ */}
+        {/* ╔══ RIGHT SIDEBAR ══════════════════════════════════════╗ */}
         <div className="flex flex-col gap-4">
 
-          {/* Live Signal */}
-          <div className="terminal-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <PanelLabel>Live Signal</PanelLabel>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted">
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ background: 'var(--color-accent)' }} />
-                Alpaca stream
+          {/* Stats panel */}
+          {result && !analyzing && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+              className="terminal-card p-5 flex flex-col gap-4">
+              <PanelLabel>Analysis Stats</PanelLabel>
+              <div className="grid grid-cols-2 gap-2">
+                <StatCell label="Articles" value={result.article_count} />
+                <StatCell label="Model"
+                  value={result.model_used === 'claude-haiku' ? 'Claude' : result.model_used === 'groq-llama3.3-70b' ? 'Groq 70B' : result.model_used}
+                  color="var(--color-accent)" />
+                <StatCell label="Confidence" value={`${Math.round(result.confidence * 100)}%`}
+                  color={result.confidence >= 0.7 ? 'var(--color-gain)' : 'var(--color-muted)'} />
+                <StatCell label="Horizon" value={result.dominant_horizon?.replace('-', ' ') ?? '–'} />
+                {result.news_score !== null && (
+                  <StatCell label="News Score"
+                    value={(result.news_score >= 0 ? '+' : '') + result.news_score.toFixed(3)}
+                    color={result.news_score >= 0.2 ? 'var(--color-gain)' : result.news_score <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)'} />
+                )}
+                {result.social_score !== null && (
+                  <StatCell label="Social Score"
+                    value={(result.social_score >= 0 ? '+' : '') + result.social_score.toFixed(3)}
+                    color={result.social_score >= 0.2 ? 'var(--color-gain)' : result.social_score <= -0.2 ? 'var(--color-loss)' : 'var(--color-muted)'} />
+                )}
               </div>
-            </div>
+            </motion.div>
+          )}
 
-            {hasLive ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span
-                    className="text-4xl font-black font-mono tabular-nums tracking-tighter leading-none"
-                    style={{ color: livePos ? 'var(--color-gain)' : 'var(--color-loss)' }}
-                  >
-                    {liveScore !== null
-                      ? (liveScore >= 0 ? '+' : '') + liveScore.toFixed(3)
-                      : '–'}
-                  </span>
-                  <span
-                    className="text-[10px] font-mono font-bold px-2 py-0.5 tracking-widest"
-                    style={{
-                      background: livePos ? 'var(--color-gain-soft)' : 'var(--color-loss-soft)',
-                      color: livePos ? 'var(--color-gain)' : 'var(--color-loss)',
-                      borderRadius: 1,
-                    }}
-                  >
-                    {String(liveSent?.signal_side ?? '–').toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <StatCell label="Model" value={String(liveSent?.model_used ?? '–')} />
-                  <StatCell
-                    label="Side"
-                    value={String(liveSent?.signal_side ?? '–').toUpperCase()}
-                    color={livePos ? 'var(--color-gain)' : 'var(--color-loss)'}
-                  />
-                </div>
-
-                <div className="border p-3" style={{ borderColor: 'var(--color-border)', borderRadius: 2 }}>
-                  <div className="text-[9px] font-mono text-muted uppercase tracking-[0.2em] mb-1.5">
-                    Latest Headline
-                  </div>
-                  <p className="text-[11px] leading-relaxed">{String(liveSent?.headline ?? '–')}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 flex flex-col items-center gap-2">
-                <span className="w-2 h-2 rounded-full border border-muted opacity-30 block" />
-                <p className="font-mono text-[10px] text-muted tracking-[0.25em] uppercase text-center">
-                  Awaiting stream
-                </p>
-                <p className="text-[11px] text-muted opacity-50 text-center">
-                  Start the app and wait for Alpaca news
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* LunarCrush — only when data available */}
+          {/* LunarCrush */}
           {buzz && buzz.available && buzz.metrics && (
-            <div className="terminal-card p-5">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+              className="terminal-card p-5">
               <div className="flex items-center justify-between mb-4">
                 <PanelLabel>LunarCrush Social</PanelLabel>
                 <span className="font-mono text-xs font-semibold" style={{ color: 'var(--color-accent)' }}>
@@ -664,22 +618,17 @@ export default function Sentiment() {
                   <StatCell label="Social Score" value={buzz.metrics.social_score} />
                 )}
                 {buzz.metrics.sentiment !== undefined && (
-                  <StatCell
-                    label="Avg Sentiment"
+                  <StatCell label="Avg Sentiment"
                     value={parseFloat(String(buzz.metrics.sentiment)).toFixed(2)}
-                    color={
-                      parseFloat(String(buzz.metrics.sentiment)) >= 0
-                        ? 'var(--color-gain)'
-                        : 'var(--color-loss)'
-                    }
+                    color={parseFloat(String(buzz.metrics.sentiment)) >= 0 ? 'var(--color-gain)' : 'var(--color-loss)'}
                   />
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
 
         </div>
-        {/* ╚═══════════════════════════════════════════════════════════════╝ */}
+        {/* ╚═══════════════════════════════════════════════════════╝ */}
 
       </div>
     </div>

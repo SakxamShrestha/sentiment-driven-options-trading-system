@@ -1383,7 +1383,7 @@ export default function Learn() {
             </div>
           </section>
 
-          {/* ② Get Paid To Learn */}
+          {/* ② Get Points To Learn */}
           <section style={{
             borderRadius: 24,
             background: 'linear-gradient(140deg, #0d0a1e 0%, #130d2e 55%, #1a1040 100%)',
@@ -1417,7 +1417,7 @@ export default function Learn() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
                 <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: '#fff', letterSpacing: '-0.01em' }}>
-                  💸 Get Paid To Learn
+                  💸 Get Points To Learn
                 </h2>
                 <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginTop: 5 }}>
                   Complete lessons about companies and earn virtual rewards

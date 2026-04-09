@@ -245,6 +245,94 @@ def lunarcrush_buzz(symbol: str):
     return jsonify({"symbol": symbol, "available": True, **buzz})
 
 
+@dashboard_bp.route("/sentiment/composite", methods=["GET"])
+def sentiment_composite():
+    """
+    Composite multi-signal sentiment for a ticker.
+    Uses Claude (or Groq fallback) per article + LunarCrush social blend.
+    Returns rich output: composite_score, news_score, social_score, confidence,
+    all_catalysts, dominant_horizon, and per-article reasoning.
+    """
+    from services.intelligence.composite_sentiment import score_article, aggregate_composite
+    from services.data_ingestion.lunarcrush_service import LunarCrushService
+
+    ticker = (request.args.get("ticker") or request.args.get("symbol") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker parameter is required"}), 400
+    try:
+        limit = min(int(request.args.get("limit", 10)), 20)
+    except ValueError:
+        limit = 10
+
+    limit_per_source = max(2, limit // 3)
+    news_items = fetch_all_sources(ticker, limit_per_source=limit_per_source)
+
+    def _relevant(item) -> bool:
+        if ticker in [s.upper() for s in (item.symbols or [])]:
+            return True
+        return ticker in ((item.headline or "") + " " + (item.summary or "")).upper()
+
+    news_items = [i for i in news_items if _relevant(i)]
+
+    if not news_items:
+        return jsonify({
+            "ticker": ticker,
+            "composite_score": None,
+            "news_score": None,
+            "social_score": None,
+            "confidence": 0.0,
+            "all_catalysts": [],
+            "dominant_horizon": None,
+            "article_count": 0,
+            "articles": [],
+            "model_used": "none",
+            "lunarcrush_available": False,
+        })
+
+    # Score each article
+    article_results = []
+    for item in news_items:
+        text = " ".join(p for p in [(item.headline or "").strip(), (item.summary or "").strip()] if p)
+        if not text:
+            continue
+        scored = score_article(text, ticker)
+        article_results.append({
+            **scored,
+            "article_id": item.article_id,
+            "headline": item.headline,
+            "summary": item.summary,
+            "url": item.url,
+            "source": item.source,
+            "symbols": item.symbols,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+        })
+
+    # LunarCrush social signal
+    lc_sentiment = None
+    lc_available = False
+    try:
+        buzz = LunarCrushService().get_social_buzz(ticker)
+        if buzz and buzz.get("sentiment") is not None:
+            raw = float(buzz["sentiment"])
+            # LunarCrush sentiment is typically 0-5; normalize to [-1, 1]
+            lc_sentiment = max(-1.0, min(1.0, (raw - 2.5) / 2.5))
+            lc_available = True
+    except Exception:
+        pass
+
+    composite = aggregate_composite(article_results, lc_sentiment)
+    model_used = article_results[0]["model_used"] if article_results else "none"
+
+    return jsonify({
+        "ticker": ticker,
+        **composite,
+        "article_count": len(article_results),
+        "articles": article_results,
+        "model_used": model_used,
+        "lunarcrush_available": lc_available,
+    })
+
+
 @dashboard_bp.route("/sentiment/by_ticker_llama", methods=["GET"])
 def sentiment_by_ticker_llama():
     """

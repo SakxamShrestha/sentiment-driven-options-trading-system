@@ -1,7 +1,7 @@
 import type {
   Account, Position, Order, Activity, Snapshot, Quote,
   Bar, SentimentResult, LunarCrushBuzz, PortfolioPoint,
-  LearnLesson, LearnQuestion, LearnProgress,
+  LearnLesson, LearnQuestion, LearnProgress, CompositeSentimentResult,
 } from '../types';
 
 const BASE = '';
@@ -63,6 +63,8 @@ export const api = {
     get<SentimentResult>(`/api/sentiment/by_ticker?ticker=${encodeURIComponent(ticker)}&limit=${limit}`),
   getSentimentLlama: (ticker: string, limit = 6) =>
     get<SentimentResult>(`/api/sentiment/by_ticker_llama?ticker=${encodeURIComponent(ticker)}&limit=${limit}`),
+  getSentimentComposite: (ticker: string, limit = 10) =>
+    get<CompositeSentimentResult>(`/api/sentiment/composite?ticker=${encodeURIComponent(ticker)}&limit=${limit}`),
   getLiveSentiment: () => get<Record<string, unknown>>('/api/live/sentiment'),
   getCircuitBreaker: () => get<{ tripped: boolean }>('/api/circuit-breaker'),
   setCircuitBreaker: (tripped: boolean) =>

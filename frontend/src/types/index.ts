@@ -102,6 +102,35 @@ export interface SentimentResult {
   model?: string;
 }
 
+export interface CompositeArticle {
+  article_id: string;
+  headline: string;
+  summary?: string;
+  url?: string;
+  source: string;
+  score: number;
+  confidence: number;
+  catalysts: string[];
+  impact_horizon: 'short-term' | 'medium-term' | 'long-term';
+  reasoning: string;
+  model_used: string;
+  created_at: string | null;
+}
+
+export interface CompositeSentimentResult {
+  ticker: string;
+  composite_score: number | null;
+  news_score: number | null;
+  social_score: number | null;
+  confidence: number;
+  all_catalysts: string[];
+  dominant_horizon: string | null;
+  article_count: number;
+  articles: CompositeArticle[];
+  model_used: string;
+  lunarcrush_available: boolean;
+}
+
 export interface LunarCrushBuzz {
   symbol: string;
   available: boolean;
