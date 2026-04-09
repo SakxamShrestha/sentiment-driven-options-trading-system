@@ -6,18 +6,9 @@ import { STARTING_EQUITY, PORTFOLIO_PERIODS, type PortfolioPeriod } from '../lib
 import { PortfolioAreaChart } from '../components/charts/PortfolioAreaChart';
 import { AnimatedNumber } from '../components/shared/AnimatedNumber';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Snapshot, SentimentArticle } from '../types';
+import type { SentimentArticle } from '../types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const MARKET_SYMBOLS = ['SPY', 'QQQ', 'AAPL'] as const;
-type MarketSym = (typeof MARKET_SYMBOLS)[number];
-
-const MARKET_LABELS: Record<MarketSym, string> = {
-  SPY:  'S&P 500',
-  QQQ:  'Nasdaq 100',
-  AAPL: 'Apple Inc.',
-};
 
 const NEWS_TICKERS = ['SPY', 'AAPL', 'TSLA', 'NVDA'] as const;
 type NewsTicker = (typeof NEWS_TICKERS)[number];
@@ -38,48 +29,6 @@ function sentimentMeta(score: number | null | undefined) {
   if (s >= 0.2)  return { label: 'BULLISH', color: 'var(--color-gain)', bg: 'var(--color-gain-soft)' };
   if (s <= -0.2) return { label: 'BEARISH', color: 'var(--color-loss)', bg: 'var(--color-loss-soft)' };
   return           { label: 'NEUTRAL',  color: 'var(--color-muted)', bg: 'var(--color-hover)' };
-}
-
-// ── Market Ticker Cell ────────────────────────────────────────────────────────
-
-function MarketTicker({ symbol, snap }: { symbol: MarketSym; snap: Snapshot | undefined }) {
-  const label = MARKET_LABELS[symbol];
-  if (!snap || snap.error) {
-    return (
-      <div className="flex items-center gap-3 px-5 py-4 border-r border-border shrink-0 opacity-40">
-        <div>
-          <div className="text-[9px] font-mono text-muted tracking-[0.18em] uppercase mb-0.5">{label}</div>
-          <div className="text-[13px] font-bold font-mono tabular-nums">—</div>
-        </div>
-      </div>
-    );
-  }
-  const up = (snap.change_pct ?? 0) >= 0;
-  const pct = snap.change_pct;
-  const chg = snap.change;
-  return (
-    <div className="flex items-center gap-3 px-5 py-4 border-r border-border shrink-0 cursor-default hover:bg-hover transition-colors duration-150">
-      <div>
-        <div className="text-[9px] font-mono text-muted tracking-[0.18em] uppercase mb-0.5">{label}</div>
-        <div className="text-[13px] font-bold font-mono tabular-nums">
-          {snap.price != null ? `$${snap.price.toFixed(2)}` : '—'}
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-0.5">
-        <span className={`text-[11px] font-mono font-semibold tabular-nums ${up ? 'text-gain' : 'text-loss'}`}>
-          {pct != null ? `${up ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-        </span>
-        {chg != null && (
-          <span
-            className={`text-[10px] font-mono tabular-nums ${up ? 'text-gain' : 'text-loss'}`}
-            style={{ opacity: 0.65 }}
-          >
-            {chg >= 0 ? '+' : ''}{chg.toFixed(2)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ── News Article Card ─────────────────────────────────────────────────────────
@@ -221,7 +170,6 @@ export default function Home() {
   const { account, setAccount, setPositions } = useAccountStore();
   const [period, setPeriod]               = useState<PortfolioPeriod>('1D');
   const [bpOpen, setBpOpen]               = useState(false);
-  const [marketSnaps, setMarketSnaps]     = useState<Partial<Record<MarketSym, Snapshot>>>({});
   const [news, setNews]                   = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading]     = useState(false);
   const [newsLoaded, setNewsLoaded]       = useState(false);
@@ -236,16 +184,6 @@ export default function Home() {
     } catch { /* ignore */ }
   }, [setAccount, setPositions]);
 
-  const fetchMarket = useCallback(async () => {
-    const results = await Promise.allSettled(
-      MARKET_SYMBOLS.map((sym) => api.getSnapshot(sym))
-    );
-    const snaps: Partial<Record<MarketSym, Snapshot>> = {};
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') snaps[MARKET_SYMBOLS[i]] = r.value;
-    });
-    setMarketSnaps(snaps);
-  }, []);
 
   const fetchNews = useCallback(async () => {
     if (newsLoaded) return;
@@ -278,10 +216,9 @@ export default function Home() {
 
   useEffect(() => {
     refreshAccount();
-    fetchMarket();
     const id = setInterval(refreshAccount, 10_000);
     return () => clearInterval(id);
-  }, [refreshAccount, fetchMarket]);
+  }, [refreshAccount]);
 
   useEffect(() => {
     const t = setTimeout(fetchNews, 800);
@@ -298,9 +235,6 @@ export default function Home() {
   const dailyPlPct  = lastEquity !== 0 ? (dailyPl / lastEquity) * 100 : 0;
   const isUp        = dailyPl >= 0;
 
-  const bullish = news.filter((n) => (n.score ?? 0) >= 0.2).length;
-  const bearish = news.filter((n) => (n.score ?? 0) <= -0.2).length;
-  const neutral = news.length - bullish - bearish;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -492,54 +426,17 @@ export default function Home() {
       <motion.div {...fade(0.2)}>
 
         {/* Section header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-[3px] h-4 rounded-full shrink-0"
-              style={{ background: 'var(--color-accent)' }}
-            />
-            <h2 className="text-[11px] font-mono font-bold tracking-[0.22em] uppercase">
-              Market Pulse
-            </h2>
-          </div>
-          <span className="text-[9px] font-mono text-muted tracking-widest">
-            AI-Scored Headlines · FinBERT
-          </span>
+        <div className="mb-6 pt-2">
+          <h2 className="text-[22px] font-mono font-bold tracking-[0.18em] uppercase"
+              style={{ letterSpacing: '0.15em' }}>
+            NEWS
+          </h2>
+          <div className="mt-2 h-[2px] w-12" style={{ background: 'var(--color-accent)' }} />
         </div>
 
         <div className="terminal-card overflow-hidden">
 
-          {/* Market overview bar + sentiment summary */}
-          <div className="flex items-stretch border-b border-border overflow-x-auto scrollbar-none">
-            {MARKET_SYMBOLS.map((sym) => (
-              <MarketTicker key={sym} symbol={sym} snap={marketSnaps[sym]} />
-            ))}
-
-            {/* Sentiment tally — right side */}
-            {newsLoaded && news.length > 0 && (
-              <div className="ml-auto px-6 flex items-center gap-4 shrink-0 border-l border-border">
-                <div className="flex items-center gap-2 text-[9px] font-mono tracking-widest">
-                  <span style={{ color: 'var(--color-gain)' }}>{bullish} BULL</span>
-                  <span className="text-muted opacity-30">·</span>
-                  <span className="text-muted">{neutral} NEUT</span>
-                  <span className="text-muted opacity-30">·</span>
-                  <span style={{ color: 'var(--color-loss)' }}>{bearish} BEAR</span>
-                </div>
-                {/* Distribution bar */}
-                <div className="flex h-1.5 w-24 overflow-hidden" style={{ borderRadius: 1 }}>
-                  {bullish > 0 && (
-                    <div style={{ width: `${(bullish / news.length) * 100}%`, background: 'var(--color-gain)' }} />
-                  )}
-                  {neutral > 0 && (
-                    <div style={{ width: `${(neutral / news.length) * 100}%`, background: 'var(--color-border)' }} />
-                  )}
-                  {bearish > 0 && (
-                    <div style={{ width: `${(bearish / news.length) * 100}%`, background: 'var(--color-loss)' }} />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* News feed */}
 
           {/* News feed */}
           <div>
