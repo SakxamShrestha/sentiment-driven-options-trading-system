@@ -358,78 +358,26 @@ function lessonGradient(iconBg: string): string {
   return `linear-gradient(160deg, #0a1020 0%, ${iconBg}44 55%, ${iconBg}99 100%)`;
 }
 
-const EARN_ENTITIES = [
-  {
-    id: 1,
-    name: 'REX Shares',
-    title: 'What is a Leveraged ETF?',
-    amount: '0.50',
-    locked: false,
-    emoji: '📦',
-    gradient: 'linear-gradient(135deg, #1a0505 0%, #2d0f0f 100%)',
-    accentColor: '#f87171',
-  },
-  {
-    id: 2,
-    name: 'Vanguard',
-    title: 'Index Funds Explained',
-    amount: '1.00',
-    locked: true,
-    emoji: '🏛️',
-    gradient: 'linear-gradient(135deg, #0d0a1a 0%, #1a1030 100%)',
-    accentColor: '#a78bfa',
-  },
-  {
-    id: 3,
-    name: 'ARK Invest',
-    title: 'Disruptive Innovation',
-    amount: '0.75',
-    locked: false,
-    emoji: '🚀',
-    gradient: 'linear-gradient(135deg, #020d1a 0%, #051830 100%)',
-    accentColor: '#38bdf8',
-  },
-  {
-    id: 4,
-    name: 'iShares',
-    title: 'Bond ETFs 101',
-    amount: '0.50',
-    locked: true,
-    emoji: '💰',
-    gradient: 'linear-gradient(135deg, #031a0e 0%, #052e18 100%)',
-    accentColor: '#4ade80',
-  },
-  {
-    id: 5,
-    name: 'Invesco QQQ',
-    title: 'Nasdaq 100 Deep Dive',
-    amount: '0.75',
-    locked: false,
-    emoji: '🔷',
-    gradient: 'linear-gradient(135deg, #0f0a00 0%, #1f1400 100%)',
-    accentColor: '#fbbf24',
-  },
-];
 
 const RECOMMENDED = [
   {
-    id: 1,
-    title: 'Earnings Per Share',
+    id: 112,
+    title: 'Earnings Per Share (EPS)',
     duration: '1 min',
     quizzes: 16,
     emoji: '💵',
     accentColor: '#818cf8',
   },
   {
-    id: 2,
-    title: 'Price-to-Earnings Ratio',
+    id: 124,
+    title: 'P/E Ratio',
     duration: '2 min',
     quizzes: 12,
     emoji: '📐',
     accentColor: '#fb923c',
   },
   {
-    id: 3,
+    id: 120,
     title: 'Market Capitalization',
     duration: '1 min',
     quizzes: 10,
@@ -437,10 +385,10 @@ const RECOMMENDED = [
     accentColor: '#34d399',
   },
   {
-    id: 4,
-    title: 'Dividend Yield',
-    duration: '3 min',
-    quizzes: 8,
+    id: 110,
+    title: 'Dividends & Yield',
+    duration: '2 min',
+    quizzes: 10,
     emoji: '🍃',
     accentColor: '#4ade80',
   },
@@ -1012,107 +960,6 @@ function CourseCard({
   );
 }
 
-// ─── Earn Card ────────────────────────────────────────────────────────────────
-function EarnCard({ entity }: { entity: typeof EARN_ENTITIES[0] }) {
-  const { hovered, onMouseEnter, onMouseLeave } = useHover();
-
-  return (
-    <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{
-        flexShrink: 0,
-        width: 172,
-        borderRadius: 18,
-        overflow: 'hidden',
-        background: entity.gradient,
-        border: `1px solid ${entity.locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`,
-        opacity: entity.locked ? 0.6 : 1,
-        cursor: entity.locked ? 'default' : 'pointer',
-        transform: (!entity.locked && hovered) ? 'translateY(-4px)' : 'translateY(0)',
-        transition: 'transform 0.2s ease, opacity 0.2s ease',
-      }}
-    >
-      {/* Thumbnail */}
-      <div style={{
-        height: 88,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 38,
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: `radial-gradient(ellipse at center, ${entity.accentColor}18 0%, transparent 70%)`,
-        }} />
-        {entity.emoji}
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: '12px 14px 14px' }}>
-        <div style={{
-          fontSize: 10,
-          fontFamily: 'var(--font-mono)',
-          color: entity.accentColor,
-          marginBottom: 5,
-          fontWeight: 700,
-          letterSpacing: '0.04em',
-        }}>
-          {entity.name}
-        </div>
-        <div style={{
-          fontSize: 12.5,
-          fontWeight: 600,
-          lineHeight: 1.35,
-          marginBottom: 12,
-          color: 'rgba(255,255,255,0.9)',
-        }}>
-          {entity.title}
-        </div>
-
-        {entity.locked ? (
-          <button style={{
-            width: '100%',
-            padding: '7px 0',
-            borderRadius: 10,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'rgba(255,255,255,0.4)',
-            fontSize: 11,
-            fontFamily: 'var(--font-mono)',
-            cursor: 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 5,
-          }}>
-            🔒 Unlock
-          </button>
-        ) : (
-          <button style={{
-            width: '100%',
-            padding: '7px 0',
-            borderRadius: 10,
-            background: 'rgba(34,197,94,0.14)',
-            border: '1.5px solid rgba(34,197,94,0.35)',
-            color: '#22c55e',
-            fontSize: 12,
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}>
-            Earn ${entity.amount}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Lesson Card ──────────────────────────────────────────────────────────────
 function LessonCard({ lesson, onStartQuiz }: { lesson: typeof RECOMMENDED[0]; onStartQuiz?: () => void }) {
   const { hovered, onMouseEnter, onMouseLeave } = useHover();
@@ -1176,8 +1023,6 @@ function LessonCard({ lesson, onStartQuiz }: { lesson: typeof RECOMMENDED[0]; on
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Learn() {
-  const earnProgress = 4.5;
-  const earnPct = (earnProgress / 11) * 100;
   const [dictOpen, setDictOpen] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
   const [quizLesson, setQuizLesson] = useState<{ id: number; title: string; emoji: string; iconBg: string } | null>(null);
@@ -1353,118 +1198,6 @@ export default function Learn() {
                     />
                   ))
               }
-            </div>
-          </section>
-
-          {/* ② Get Points To Learn */}
-          <section style={{
-            borderRadius: 24,
-            background: 'linear-gradient(140deg, #0d0a1e 0%, #130d2e 55%, #1a1040 100%)',
-            border: '1px solid rgba(139,92,246,0.22)',
-            padding: '26px 26px 22px',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            {/* Glow decoration */}
-            <div style={{
-              position: 'absolute',
-              top: -80,
-              right: -80,
-              width: 240,
-              height: 240,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 68%)',
-              pointerEvents: 'none',
-            }} />
-            <div style={{
-              position: 'absolute',
-              bottom: -40,
-              left: -40,
-              width: 160,
-              height: 160,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%)',
-              pointerEvents: 'none',
-            }} />
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: '#fff', letterSpacing: '-0.01em' }}>
-                  💸 Get Points To Learn
-                </h2>
-                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginTop: 5 }}>
-                  Complete lessons about companies and earn virtual rewards
-                </p>
-              </div>
-              <button style={{
-                fontSize: 12,
-                fontFamily: 'var(--font-mono)',
-                color: '#a78bfa',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                opacity: 0.85,
-              }}>
-                View more →
-              </button>
-            </div>
-
-            {/* Earnings progress bar */}
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 9 }}>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#a78bfa', letterSpacing: '0.04em' }}>
-                  EARNINGS PROGRESS
-                </span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.55)' }}>
-                  ${earnProgress.toFixed(2)} / $11.00
-                </span>
-              </div>
-              <div style={{
-                height: 7,
-                borderRadius: 8,
-                background: 'rgba(255,255,255,0.07)',
-                position: 'relative',
-              }}>
-                <div style={{
-                  height: '100%',
-                  borderRadius: 8,
-                  width: `${earnPct}%`,
-                  background: 'linear-gradient(90deg, #7c3aed, #a855f7, #c084fc)',
-                  position: 'relative',
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    right: -5,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 13,
-                    height: 13,
-                    borderRadius: '50%',
-                    background: '#c084fc',
-                    border: '2.5px solid #130d2e',
-                    boxShadow: '0 0 10px rgba(192,132,252,0.7)',
-                  }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }}>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.3)' }}>$1</span>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.3)' }}>$11</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Entity cards */}
-            <div
-              className="learn-hscroll"
-              style={{
-                display: 'flex',
-                gap: 13,
-                overflowX: 'auto',
-                paddingBottom: 4,
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              } as React.CSSProperties}
-            >
-              {EARN_ENTITIES.map(e => <EarnCard key={e.id} entity={e} />)}
             </div>
           </section>
 

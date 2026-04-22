@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { NotificationDropdown } from '../shared/NotificationDropdown';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useSidebarStore } from '../../stores/useSidebarStore';
@@ -196,7 +195,6 @@ export function Sidebar() {
           <span className="text-sm font-bold font-mono">TradeSent<span className="text-accent">.AI</span></span>
         </Link>
         <div className="flex items-center gap-1">
-          <NotificationDropdown />
         </div>
       </div>
 
@@ -229,7 +227,6 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className={`border-t border-sidebar-border px-2 py-3 shrink-0 flex items-center ${isCollapsed ? 'flex-col gap-1' : 'justify-between gap-1'}`}>
-          <NotificationDropdown />
           <NavLink to="/profile" className={({ isActive }) => `p-1.5 rounded-sm transition-colors ${isActive ? 'text-accent bg-accent/10' : 'text-muted hover:text-text hover:bg-hover'}`}>
             <Avatar size="sm" />
           </NavLink>

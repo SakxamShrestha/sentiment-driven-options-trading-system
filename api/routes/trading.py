@@ -182,47 +182,51 @@ def get_quote(symbol: str):
 
 @trading_bp.route("/snapshot/<symbol>", methods=["GET"])
 def get_snapshot(symbol: str):
-    """Return latest trade price + daily open for computing change."""
+    """Return latest trade price + today's daily change from Alpaca snapshot."""
     symbol = symbol.upper()
     try:
-        r_trade = req.get(
-            f"{_DATA}/v2/stocks/{symbol}/trades/latest",
+        # Alpaca's /snapshot endpoint returns dailyBar (today's OHLCV),
+        # latestTrade, and prevDailyBar in one call — much more reliable than
+        # /bars/latest which returns the most recent minute bar (open ≈ price → ~0% change).
+        r = req.get(
+            f"{_DATA}/v2/stocks/{symbol}/snapshot",
             headers=_HEADERS,
             timeout=8,
         )
-        r_trade.raise_for_status()
-        trade = r_trade.json().get("trade", {})
-        last_price = trade.get("p")
+        r.raise_for_status()
+        data = r.json()
 
-        r_bar = req.get(
-            f"{_DATA}/v2/stocks/{symbol}/bars/latest",
-            headers=_HEADERS,
-            timeout=8,
-        )
-        r_bar.raise_for_status()
-        bar = r_bar.json().get("bar", {})
-        open_price = bar.get("o")
+        latest_trade = data.get("latestTrade") or {}
+        daily_bar    = data.get("dailyBar") or {}
+        prev_bar     = data.get("prevDailyBar") or {}
 
+        last_price = latest_trade.get("p")
+        open_price = daily_bar.get("o")       # today's market open
+        prev_close = prev_bar.get("c")        # previous day's close (fallback)
+
+        # Prefer open-to-current for intraday; fall back to prev-close-to-current
+        base = open_price or prev_close
         change = None
         change_pct = None
-        if last_price is not None and open_price:
-            change = float(last_price) - float(open_price)
-            change_pct = (change / float(open_price)) * 100
+        if last_price is not None and base:
+            change = float(last_price) - float(base)
+            change_pct = (change / float(base)) * 100
 
         return jsonify({
             "symbol": symbol,
             "price": last_price,
             "open": open_price,
-            "high": bar.get("h"),
-            "low": bar.get("l"),
-            "volume": bar.get("v"),
+            "prev_close": prev_close,
+            "high": daily_bar.get("h"),
+            "low": daily_bar.get("l"),
+            "volume": daily_bar.get("v"),
             "change": change,
             "change_pct": change_pct,
-            "timestamp": trade.get("t"),
+            "timestamp": latest_trade.get("t"),
         })
     except Exception as e:
         logger.debug("Snapshot fetch failed for %s: %s", symbol, e)
-        return jsonify({"symbol": symbol, "price": None, "error": str(e)}), 200
+        return jsonify({"symbol": symbol, "price": None, "change_pct": None, "error": str(e)}), 200
 
 
 @trading_bp.route("/bars/<symbol>", methods=["GET"])

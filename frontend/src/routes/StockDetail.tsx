@@ -9,28 +9,31 @@ import { OrderForm } from '../components/trading/OrderForm';
 import { Spinner } from '../components/shared/Spinner';
 import { useAccountStore } from '../stores/useAccountStore';
 import type { Snapshot, Position, Order } from '../types';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 type Tab = 'position' | 'orders';
+
+const fade = (delay = 0) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3, delay, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] },
+});
 
 export default function StockDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const sym = (symbol ?? '').toUpperCase();
   const navigate = useNavigate();
 
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [tf, setTf] = useState<Timeframe>('5Min');
-  const [tab, setTab] = useState<Tab>('position');
-  const [position, setPosition] = useState<Position | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [snapshot, setSnapshot]   = useState<Snapshot | null>(null);
+  const [tf, setTf]               = useState<Timeframe>('5Min');
+  const [tab, setTab]             = useState<Tab>('position');
+  const [position, setPosition]   = useState<Position | null>(null);
+  const [orders, setOrders]       = useState<Order[]>([]);
+  const [loading, setLoading]     = useState(true);
   const account = useAccountStore((s) => s.account);
 
   const loadSnapshot = useCallback(async () => {
-    try {
-      const d = await api.getSnapshot(sym);
-      setSnapshot(d);
-    } catch { /* ignore */ }
+    try { setSnapshot(await api.getSnapshot(sym)); } catch { /* ignore */ }
     setLoading(false);
   }, [sym]);
 
@@ -59,240 +62,384 @@ export default function StockDetail() {
     if (tab === 'orders') loadOrders();
   }, [tab, loadOrders]);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Spinner className="w-6 h-6" /></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 320 }}>
+      <Spinner className="w-6 h-6" />
+    </div>
+  );
 
-  const price = snapshot?.price;
-  const change = snapshot?.change;
-  const changePct = snapshot?.change_pct;
+  const price      = snapshot?.price;
+  const change     = snapshot?.change;
+  const changePct  = snapshot?.change_pct;
   const isPositive = (change ?? 0) >= 0;
 
-  // Position stats
-  const posMarketVal = position ? parseFloat(position.market_value || '0') : null;
-  const posUnrealizedPl = position ? parseFloat(position.unrealized_pl || '0') : null;
+  const posMarketVal       = position ? parseFloat(position.market_value    || '0') : null;
+  const posUnrealizedPl    = position ? parseFloat(position.unrealized_pl   || '0') : null;
   const posUnrealizedPlPct = position ? parseFloat(position.unrealized_plpc || '0') * 100 : null;
-  const posAvgCost = position ? parseFloat(position.avg_entry_price || '0') : null;
-  const posQty = position ? parseFloat(position.qty || '0') : null;
-  const equity = account?.equity ? parseFloat(account.equity) : null;
-  const portfolioPct = posMarketVal && equity ? (posMarketVal / equity) * 100 : null;
+  const posAvgCost         = position ? parseFloat(position.avg_entry_price || '0') : null;
+  const posQty             = position ? parseFloat(position.qty             || '0') : null;
+  const equity             = account?.equity ? parseFloat(account.equity) : null;
+  const portfolioPct       = posMarketVal && equity ? (posMarketVal / equity) * 100 : null;
+
+  const gainColor  = 'var(--color-gain)';
+  const lossColor  = 'var(--color-loss)';
+  const priceColor = isPositive ? gainColor : lossColor;
 
   return (
-    <div className="flex gap-6 max-w-[1240px] pb-10">
+    <div style={{ maxWidth: 1280, paddingBottom: 48 }}>
 
-      {/* ── Left column ── */}
-      <div className="flex-1 min-w-0">
+      {/* ── Back ── */}
+      <motion.button
+        {...fade(0)}
+        onClick={() => navigate(-1)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20,
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--color-muted)', fontSize: 12, fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.04em',
+        }}
+        whileHover={{ x: -2 }}
+        transition={{ duration: 0.1 }}
+      >
+        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M19 12H5" /><path d="M12 5l-7 7 7 7" />
+        </svg>
+        Back
+      </motion.button>
 
-        {/* Back button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 mb-5 text-xs text-muted hover:text-text transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M19 12H5" /><path d="M12 5l-7 7 7 7" />
-          </svg>
-          Back
-        </button>
+      {/* ── Stock header ── */}
+      <motion.div {...fade(0.04)} style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
+            color: 'var(--color-muted)', letterSpacing: '0.12em', textTransform: 'uppercase',
+          }}>
+            {sym}
+          </span>
+          <span style={{ color: 'var(--color-border)', fontSize: 11 }}>·</span>
+          <span style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
+            NASDAQ · Paper Trading
+          </span>
+        </div>
 
-        {/* Stock header */}
-        <div className="mb-5">
-          <h1 className="text-[15px] font-semibold text-muted mb-1">{sym}</h1>
-          <div className="flex items-baseline gap-3 flex-wrap">
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+          {/* Price */}
+          <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
             {price
-              ? <PriceFlash value={price} className="text-4xl font-bold" />
-              : <span className="text-4xl font-bold">$–</span>
+              ? <PriceFlash value={price} className="" />
+              : <span style={{ color: 'var(--color-muted)' }}>$–</span>
             }
-            {change !== null && change !== undefined && changePct !== null && changePct !== undefined && (
-              <span className={`text-base font-semibold ${isPositive ? 'text-gain' : 'text-loss'}`}>
-                {plSign(change)}${Math.abs(change).toFixed(2)} ({plSign(changePct)}{Math.abs(changePct).toFixed(2)}%) Today
-              </span>
-            )}
           </div>
-          {snapshot?.timestamp && (
-            <p className="text-[11px] text-muted mt-1 font-mono">
-              Updated {fmtDate(snapshot.timestamp)}
-            </p>
+
+          {/* Change badge */}
+          {change != null && changePct != null && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 4,
+            }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 999,
+                background: isPositive ? 'var(--color-gain-soft)' : 'var(--color-loss-soft)',
+                color: priceColor,
+                fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
+              }}>
+                {isPositive ? '▲' : '▼'}
+                {plSign(change)}${Math.abs(change).toFixed(2)}
+              </span>
+              <span style={{
+                fontSize: 13, fontWeight: 600, color: priceColor, fontFamily: 'var(--font-mono)',
+              }}>
+                {plSign(changePct)}{Math.abs(changePct).toFixed(2)}%
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>today</span>
+            </div>
           )}
         </div>
 
-        {/* Chart */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={tf}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <CandlestickChart symbol={sym} timeframe={tf} />
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Timeframe selector — underline style */}
-          <div className="flex items-center border-t border-border px-4">
-            {TIMEFRAMES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTf(t)}
-                className={`px-3 py-2.5 text-xs font-semibold font-mono transition-all duration-150 border-b-2 ${
-                  tf === t
-                    ? 'text-text border-gain'
-                    : 'text-muted border-transparent hover:text-text'
-                }`}
-              >
-                {TIMEFRAME_LABELS[t]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats cards — only if position exists */}
-        {position && (
-          <div className="grid grid-cols-2 gap-4 mb-5">
-            {/* Market Value card */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <p className="text-[11px] text-muted font-mono uppercase tracking-widest mb-3">Your market value</p>
-              <p className="text-2xl font-bold mb-4">{fmt(posMarketVal)}</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted">Today's return</span>
-                  <span className={`font-semibold font-mono ${posUnrealizedPl !== null && posUnrealizedPl >= 0 ? 'text-gain' : 'text-loss'}`}>
-                    {posUnrealizedPl !== null ? `${plSign(posUnrealizedPl)}${fmt(Math.abs(posUnrealizedPl))}` : '–'}
-                    {posUnrealizedPlPct !== null && (
-                      <span className="text-xs ml-1 opacity-70">({plSign(posUnrealizedPlPct)}{Math.abs(posUnrealizedPlPct).toFixed(2)}%)</span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted">Total return</span>
-                  <span className={`font-semibold font-mono ${posUnrealizedPl !== null && posUnrealizedPl >= 0 ? 'text-gain' : 'text-loss'}`}>
-                    {posUnrealizedPl !== null ? `${plSign(posUnrealizedPl)}${fmt(Math.abs(posUnrealizedPl))}` : '–'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Average Cost card */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <p className="text-[11px] text-muted font-mono uppercase tracking-widest mb-3">Your average cost</p>
-              <p className="text-2xl font-bold mb-4">{posAvgCost ? `$${posAvgCost.toFixed(2)}` : '–'}</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted">Shares</span>
-                  <span className="font-semibold font-mono">
-                    {posQty !== null ? (posQty % 1 === 0 ? posQty.toFixed(0) : posQty.toFixed(6)) : '–'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted">Portfolio diversity</span>
-                  <span className="font-semibold font-mono">
-                    {portfolioPct !== null ? `${portfolioPct.toFixed(2)}%` : '–'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {snapshot?.timestamp && (
+          <p style={{ fontSize: 10, color: 'var(--color-muted)', fontFamily: 'var(--font-mono)', marginTop: 6, letterSpacing: '0.03em' }}>
+            Updated {fmtDate(snapshot.timestamp)}
+          </p>
         )}
+      </motion.div>
 
-        {/* Tabs: Position / Orders / Sentiment */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="flex border-b border-border">
-            {(['position', 'orders'] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-150 capitalize ${
-                  tab === t ? 'text-text border-gain' : 'text-muted border-transparent hover:text-text'
-                }`}
-              >
-                {t === 'orders' ? 'Orders' : 'Position'}
-              </button>
-            ))}
-          </div>
+      {/* ── Two-column body ── */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
-          <div className="p-5">
-            {tab === 'position' && (
-              <div>
-                {position ? (
-                  <div className="grid grid-cols-3 gap-5">
-                    {[
-                      ['Quantity', position.qty],
-                      ['Avg Entry', `$${parseFloat(position.avg_entry_price || '0').toFixed(2)}`],
-                      ['Current Price', `$${parseFloat(position.current_price || '0').toFixed(2)}`],
-                      ['Market Value', fmt(position.market_value)],
+        {/* ── Left: chart + stats + tabs ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* Chart card */}
+          <motion.div {...fade(0.08)} style={{
+            background: 'var(--color-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 10,
+            overflow: 'hidden',
+            marginBottom: 16,
+          }}>
+            <CandlestickChart symbol={sym} timeframe={tf} />
+
+            {/* Timeframe row */}
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              borderTop: '1px solid var(--color-border)',
+              padding: '0 16px',
+            }}>
+              {TIMEFRAMES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTf(t)}
+                  style={{
+                    padding: '10px 12px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.06em',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: `2px solid ${tf === t ? gainColor : 'transparent'}`,
+                    color: tf === t ? 'var(--color-text)' : 'var(--color-muted)',
+                    cursor: 'pointer',
+                    transition: 'color 0.12s, border-color 0.12s',
+                  }}
+                >
+                  {TIMEFRAME_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Position stats grid */}
+          {position && (
+            <motion.div {...fade(0.14)} style={{ marginBottom: 16 }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: 1, background: 'var(--color-border)',
+                border: '1px solid var(--color-border)', borderRadius: 10, overflow: 'hidden',
+              }}>
+                {[
+                  { label: 'Market Value',  value: fmt(posMarketVal),   color: undefined },
+                  { label: 'Avg Cost',      value: posAvgCost ? `$${posAvgCost.toFixed(2)}` : '–', color: undefined },
+                  {
+                    label: 'Unrealized P&L',
+                    value: posUnrealizedPl != null
+                      ? `${plSign(posUnrealizedPl)}${fmt(Math.abs(posUnrealizedPl))}`
+                      : '–',
+                    color: posUnrealizedPl != null
+                      ? posUnrealizedPl >= 0 ? gainColor : lossColor
+                      : undefined,
+                  },
+                  { label: 'Shares',        value: posQty != null ? (posQty % 1 === 0 ? posQty.toFixed(0) : posQty.toFixed(4)) : '–', color: undefined },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: 'var(--color-card)', padding: '18px 20px' }}>
+                    <div style={{
+                      fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)',
+                      textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8,
+                    }}>
+                      {label}
+                    </div>
+                    <div style={{
+                      fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                      letterSpacing: '-0.02em', color: color ?? 'var(--color-text)',
+                    }}>
+                      {value}
+                    </div>
+                    {label === 'Unrealized P&L' && posUnrealizedPlPct != null && (
+                      <div style={{ fontSize: 10, color: color ?? 'var(--color-muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                        {plSign(posUnrealizedPlPct)}{Math.abs(posUnrealizedPlPct).toFixed(2)}%
+                      </div>
+                    )}
+                    {label === 'Market Value' && portfolioPct != null && (
+                      <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                        {portfolioPct.toFixed(1)}% of portfolio
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Position / Orders tabs */}
+          <motion.div {...fade(0.18)} style={{
+            background: 'var(--color-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 10, overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
+              {(['position', 'orders'] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    padding: '12px 20px',
+                    fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                    background: 'none', border: 'none',
+                    borderBottom: `2px solid ${tab === t ? gainColor : 'transparent'}`,
+                    color: tab === t ? 'var(--color-text)' : 'var(--color-muted)',
+                    cursor: 'pointer', transition: 'color 0.12s, border-color 0.12s',
+                    marginBottom: -1,
+                  }}
+                >
+                  {t === 'orders' ? 'Orders' : 'Position'}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ padding: '20px 20px' }}>
+              {tab === 'position' && (
+                position ? (
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px 24px',
+                  }}>
+                    {([
+                      ['Quantity',      position.qty],
+                      ['Avg Entry',     `$${parseFloat(position.avg_entry_price || '0').toFixed(2)}`],
+                      ['Current Price', `$${parseFloat(position.current_price   || '0').toFixed(2)}`],
+                      ['Market Value',  fmt(position.market_value)],
                       ['Unrealized P&L', fmt(position.unrealized_pl)],
-                      ['P&L %', `${plSign(posUnrealizedPlPct ?? 0)}${Math.abs(posUnrealizedPlPct ?? 0).toFixed(2)}%`],
-                    ].map(([label, val], i) => (
+                      ['P&L %',         `${plSign(posUnrealizedPlPct ?? 0)}${Math.abs(posUnrealizedPlPct ?? 0).toFixed(2)}%`],
+                    ] as [string, string][]).map(([label, val], i) => (
                       <div key={i}>
-                        <div className="text-[11px] text-muted font-mono uppercase tracking-widest mb-1">{label}</div>
-                        <div className={`text-base font-bold ${i >= 4 ? plClass(position.unrealized_pl) : ''}`}>{val}</div>
+                        <div style={{
+                          fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)',
+                          textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4,
+                        }}>
+                          {label}
+                        </div>
+                        <div className={i >= 4 ? plClass(position.unrealized_pl) : ''} style={{
+                          fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                        }}>
+                          {val}
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 text-muted text-sm">
-                    No open position in {sym}.<br />
-                    <span className="text-xs mt-1 block">Use the order form to start trading.</span>
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--color-muted)', fontSize: 13 }}>
+                    No open position in {sym}
+                    <div style={{ fontSize: 11, marginTop: 4, opacity: 0.7 }}>Use the order form to start trading.</div>
                   </div>
-                )}
-              </div>
-            )}
+                )
+              )}
 
-            {tab === 'orders' && (
-              <div>
-                {!orders.length ? (
-                  <div className="text-center py-6 text-muted text-sm">No orders for {sym}</div>
+              {tab === 'orders' && (
+                !orders.length ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--color-muted)', fontSize: 13 }}>
+                    No orders for {sym}
+                  </div>
                 ) : (
-                  <table className="w-full text-sm">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr className="text-[11px] font-semibold text-muted uppercase tracking-widest border-b border-border">
-                        <th className="text-left pb-2">Side</th>
-                        <th className="text-left pb-2">Type</th>
-                        <th className="text-left pb-2">Qty</th>
-                        <th className="text-left pb-2">Status</th>
-                        <th className="text-left pb-2">Submitted</th>
+                      <tr>
+                        {['Side', 'Type', 'Qty', 'Status', 'Submitted'].map((h) => (
+                          <th key={h} style={{
+                            textAlign: 'left', paddingBottom: 10,
+                            fontFamily: 'var(--font-mono)', fontSize: 9,
+                            color: 'var(--color-muted)', letterSpacing: '0.12em',
+                            textTransform: 'uppercase', fontWeight: 700,
+                            borderBottom: '1px solid var(--color-border)',
+                          }}>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {orders.map((o) => (
-                        <tr key={o.id} className="border-b border-border last:border-0 hover:bg-hover transition-colors">
-                          <td className={`py-3 font-semibold text-xs uppercase ${o.side === 'buy' ? 'text-gain' : 'text-loss'}`}>{o.side}</td>
-                          <td className="py-3 text-xs">{o.type}</td>
-                          <td className="py-3 text-xs font-mono">{o.filled_qty || 0}/{o.qty || '–'}</td>
-                          <td className="py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              o.status === 'filled' ? 'bg-gain-soft text-gain' :
-                              o.status.includes('cancel') ? 'bg-hover text-muted' : 'bg-hover text-muted'
-                            }`}>{o.status}</span>
+                        <tr key={o.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                          <td style={{
+                            padding: '11px 0', fontWeight: 700, fontSize: 11, fontFamily: 'var(--font-mono)',
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            color: o.side === 'buy' ? gainColor : lossColor,
+                          }}>
+                            {o.side}
                           </td>
-                          <td className="py-3 text-xs text-muted">{fmtDate(o.submitted_at)}</td>
+                          <td style={{ padding: '11px 8px 11px 0', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)' }}>
+                            {o.type}
+                          </td>
+                          <td style={{ padding: '11px 8px 11px 0', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                            {o.filled_qty || 0}/{o.qty || '–'}
+                          </td>
+                          <td style={{ padding: '11px 8px 11px 0' }}>
+                            <span style={{
+                              padding: '3px 8px', borderRadius: 999, fontSize: 9, fontWeight: 700,
+                              fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase',
+                              background: o.status === 'filled' ? 'var(--color-gain-soft)' : 'var(--color-hover)',
+                              color: o.status === 'filled' ? gainColor : 'var(--color-muted)',
+                            }}>
+                              {o.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 0', fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }}>
+                            {fmtDate(o.submitted_at)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                )}
-              </div>
-            )}
-
-          </div>
+                )
+              )}
+            </div>
+          </motion.div>
         </div>
-      </div>
 
-      {/* ── Right column: sticky order card ── */}
-      <div className="w-[280px] shrink-0 hidden lg:block">
-        <div className="sticky top-4 space-y-3">
-          <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <OrderForm symbol={sym} currentPrice={price ?? null} compact />
+        {/* ── Right: sticky order panel ── */}
+        <motion.div {...fade(0.1)} style={{ width: 300, flexShrink: 0 }} className="hidden lg:block">
+          <div style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* Order form card */}
+            <div style={{
+              background: 'var(--color-card)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 10, overflow: 'hidden',
+            }}>
+              <OrderForm symbol={sym} currentPrice={price ?? null} compact />
+            </div>
+
+            {/* Secondary actions */}
+            <button style={{
+              width: '100%', padding: '10px 0', borderRadius: 999,
+              border: '1px solid var(--color-border)', background: 'transparent',
+              fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)',
+              cursor: 'pointer', letterSpacing: '0.04em', transition: 'all 0.12s',
+            }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-muted)';
+              }}
+            >
+              Trade {sym} Options
+            </button>
+
+            <button style={{
+              width: '100%', padding: '10px 0', borderRadius: 999,
+              border: '1px solid var(--color-border)', background: 'transparent',
+              fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-muted)',
+              cursor: 'pointer', letterSpacing: '0.04em', transition: 'all 0.12s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-muted)';
+              }}
+            >
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add to Watchlist
+            </button>
           </div>
-
-          {/* Secondary actions */}
-          <button className="w-full py-2.5 border border-border rounded-2xl text-sm text-muted hover:border-accent hover:text-accent transition-colors">
-            Trade {sym} Options
-          </button>
-          <button className="w-full py-2.5 border border-border rounded-2xl text-sm text-muted hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
-            Add to Watchlist
-          </button>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

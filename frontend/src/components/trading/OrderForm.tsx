@@ -3,6 +3,7 @@ import { api } from '../../services/api';
 import { useAccountStore } from '../../stores/useAccountStore';
 import { useToastStore } from '../../stores/useToastStore';
 import { fmt } from '../../lib/formatters';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   symbol: string;
@@ -11,17 +12,21 @@ interface Props {
 }
 
 export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
-  const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [qty, setQty] = useState(1);
+  const [side, setSide]           = useState<'buy' | 'sell'>('buy');
+  const [qty, setQty]             = useState(1);
   const [orderType, setOrderType] = useState('market');
-  const [tif, setTif] = useState('day');
+  const [tif, setTif]             = useState('day');
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
   const buyingPower = useAccountStore((s) => s.account?.buying_power);
   const { setAccount, setPositions } = useAccountStore();
   const toast = useToastStore((s) => s.show);
 
   const estCost = currentPrice && qty > 0 ? qty * currentPrice : null;
+  const isBuy = side === 'buy';
+  const actionColor = isBuy ? 'var(--color-gain)' : 'var(--color-loss)';
+  const actionBg    = isBuy ? 'var(--color-gain-soft)' : 'var(--color-loss-soft)';
 
   const submit = async () => {
     if (!symbol || qty < 1) return;
@@ -44,159 +49,287 @@ export function OrderForm({ symbol, currentPrice, compact = false }: Props) {
     setSubmitting(false);
   };
 
-  const selectClass = 'w-full h-9 px-3 terminal-input text-sm focus:border-accent rounded-lg';
-  const isBuy = side === 'buy';
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: 38, padding: '0 12px',
+    border: '1px solid var(--color-border)',
+    borderRadius: 8, background: 'var(--color-surface)',
+    color: 'var(--color-text)', fontSize: 13,
+    fontFamily: 'var(--font-mono)',
+    outline: 'none', transition: 'border-color 0.12s',
+  };
 
-  if (compact) {
-    /* ── Review screen ── */
-    if (reviewing) {
-      return (
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <button onClick={() => setReviewing(false)} className="text-muted hover:text-text transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M19 12H5" /><path d="M12 5l-7 7 7 7" />
-              </svg>
-            </button>
-            <span className="text-sm font-semibold">Review order</span>
-          </div>
+  const labelStyle: React.CSSProperties = {
+    fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700,
+    color: 'var(--color-muted)', textTransform: 'uppercase',
+    letterSpacing: '0.14em', display: 'block', marginBottom: 6,
+  };
 
-          <div className="space-y-3 mb-5">
-            {[
-              ['Action', `${isBuy ? 'Buy' : 'Sell'} ${symbol}`],
-              ['Quantity', `${qty} share${qty !== 1 ? 's' : ''}`],
-              ['Order type', orderType.charAt(0).toUpperCase() + orderType.slice(1)],
-              ['Time in force', tif.toUpperCase()],
-              ['Est. cost', estCost ? fmt(estCost) : '$–'],
-            ].map(([label, val]) => (
-              <div key={label as string} className="flex items-center justify-between text-sm">
-                <span className="text-muted">{label}</span>
-                <span className="font-semibold font-mono">{val}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="h-px bg-border mb-4" />
-
-          <button
-            disabled={submitting}
-            onClick={submit}
-            className={`w-full h-11 rounded-xl text-white text-sm font-bold transition-opacity disabled:opacity-40 ${
-              isBuy ? 'bg-gain hover:opacity-90' : 'bg-loss hover:opacity-90'
-            }`}
-          >
-            {submitting ? 'Submitting…' : `Confirm ${isBuy ? 'buy' : 'sell'}`}
-          </button>
-        </div>
-      );
-    }
-
-    /* ── Order form ── */
+  // ── Review screen ─────────────────────────────────────────────────────────
+  if (compact && reviewing) {
     return (
-      <div className="p-5">
-        {/* Buy / Sell tabs */}
-        <div className="flex border-b border-border mb-5">
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.18 }}
+        style={{ padding: 20 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <button
-            onClick={() => setSide('buy')}
-            className={`flex-1 pb-2.5 text-sm font-semibold border-b-2 transition-all duration-150 ${
-              isBuy ? 'text-gain border-gain' : 'text-muted border-transparent'
-            }`}
+            onClick={() => setReviewing(false)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--color-muted)', display: 'flex', alignItems: 'center',
+              padding: 0,
+            }}
           >
-            Buy {symbol}
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path d="M19 12H5" /><path d="M12 5l-7 7 7 7" />
+            </svg>
           </button>
-          <button
-            onClick={() => setSide('sell')}
-            className={`flex-1 pb-2.5 text-sm font-semibold border-b-2 transition-all duration-150 ${
-              !isBuy ? 'text-loss border-loss' : 'text-muted border-transparent'
-            }`}
-          >
-            Sell {symbol}
-          </button>
+          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            Review order
+          </span>
+        </div>
+
+        {/* Summary rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+          {[
+            ['Action',       `${isBuy ? 'Buy' : 'Sell'} ${symbol}`],
+            ['Quantity',     `${qty} share${qty !== 1 ? 's' : ''}`],
+            ['Order type',   orderType.charAt(0).toUpperCase() + orderType.slice(1)],
+            ['Time in force', tif.toUpperCase()],
+            ['Est. cost',    estCost ? fmt(estCost) : '$–'],
+          ].map(([label, val]) => (
+            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: 1, background: 'var(--color-border)', marginBottom: 16 }} />
+
+        <button
+          disabled={submitting}
+          onClick={submit}
+          style={{
+            width: '100%', height: 44, borderRadius: 999,
+            background: actionColor, color: '#fff',
+            border: 'none', cursor: 'pointer',
+            fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            opacity: submitting ? 0.5 : 1,
+            transition: 'opacity 0.12s, transform 0.1s',
+          }}
+          onMouseEnter={(e) => !submitting && ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.01)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')}
+        >
+          {submitting ? 'Submitting…' : `Confirm ${isBuy ? 'Buy' : 'Sell'}`}
+        </button>
+      </motion.div>
+    );
+  }
+
+  // ── Compact order form ────────────────────────────────────────────────────
+  if (compact) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        style={{ padding: 20 }}
+      >
+        {/* Buy / Sell pill toggle */}
+        <div style={{
+          display: 'flex', background: 'var(--color-surface)',
+          borderRadius: 999, padding: 3, marginBottom: 20,
+          border: '1px solid var(--color-border)',
+        }}>
+          {(['buy', 'sell'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSide(s)}
+              style={{
+                flex: 1, padding: '8px 0',
+                borderRadius: 999, border: 'none',
+                fontSize: 12, fontWeight: 800,
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                background: side === s
+                  ? s === 'buy' ? 'var(--color-gain)' : 'var(--color-loss)'
+                  : 'transparent',
+                color: side === s ? '#fff' : 'var(--color-muted)',
+              }}
+            >
+              {s}
+            </button>
+          ))}
         </div>
 
         {/* Order type */}
-        <div className="mb-3">
-          <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1.5 block">Order type</label>
-          <select value={orderType} onChange={(e) => setOrderType(e.target.value)} className={selectClass}>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Order type</label>
+          <select
+            value={orderType}
+            onChange={(e) => setOrderType(e.target.value)}
+            style={inputStyle}
+          >
             <option value="market">Market</option>
             <option value="limit">Limit</option>
           </select>
         </div>
 
-        {/* Quantity */}
-        <div className="mb-3">
-          <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1.5 block">Shares</label>
-          <div className="relative">
+        {/* Quantity stepper */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Shares</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={() => setQty(q => Math.max(1, q - 1))}
+              style={{
+                width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+                border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+                color: 'var(--color-text)', fontSize: 16, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--color-hover)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface)')}
+            >
+              −
+            </button>
             <input
               type="number"
               min={1}
               value={qty}
               onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
-              className="w-full h-9 pl-3 pr-16 terminal-input text-sm focus:border-accent rounded-lg font-mono"
+              style={{ ...inputStyle, textAlign: 'center', flex: 1 }}
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">shares</span>
+            <button
+              onClick={() => setQty(q => q + 1)}
+              style={{
+                width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+                border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+                color: 'var(--color-text)', fontSize: 16, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--color-hover)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface)')}
+            >
+              +
+            </button>
           </div>
         </div>
 
         {/* TIF */}
-        <div className="mb-4">
-          <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1.5 block">Time in force</label>
-          <select value={tif} onChange={(e) => setTif(e.target.value)} className={selectClass}>
+        <div style={{ marginBottom: 18 }}>
+          <label style={labelStyle}>Time in force</label>
+          <select
+            value={tif}
+            onChange={(e) => setTif(e.target.value)}
+            style={inputStyle}
+          >
             <option value="day">Day</option>
             <option value="gtc">Good till cancelled</option>
           </select>
         </div>
 
-        {/* Summary row */}
-        <div className="flex items-center justify-between text-xs text-muted mb-1">
-          <span>Estimated cost</span>
-          <span className="font-semibold font-mono text-text">{estCost ? fmt(estCost) : '$–'}</span>
-        </div>
+        {/* Estimated cost row */}
+        <AnimatePresence>
+          {estCost && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 12px', borderRadius: 8,
+                background: actionBg, marginBottom: 14,
+              }}
+            >
+              <span style={{ fontSize: 11, color: actionColor, fontFamily: 'var(--font-mono)' }}>
+                Est. {isBuy ? 'cost' : 'proceeds'}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)', color: actionColor }}>
+                {fmt(estCost)}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Review order button */}
+        {/* Review order CTA */}
         <button
           onClick={() => setReviewing(true)}
           disabled={qty < 1}
-          className={`w-full h-11 mt-4 rounded-xl text-white text-sm font-bold transition-opacity disabled:opacity-40 ${
-            isBuy ? 'bg-gain hover:opacity-90' : 'bg-loss hover:opacity-90'
-          }`}
+          style={{
+            width: '100%', height: 44, borderRadius: 999,
+            background: actionColor, color: '#fff',
+            border: 'none', cursor: qty >= 1 ? 'pointer' : 'not-allowed',
+            fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            opacity: qty < 1 ? 0.4 : 1,
+            transition: 'opacity 0.12s, transform 0.1s',
+          }}
+          onMouseEnter={(e) => qty >= 1 && ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.01)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')}
         >
           Review order
         </button>
 
         {/* Buying power */}
-        <div className="flex items-center justify-between text-[11px] text-muted mt-3">
-          <span>Buying power available</span>
-          <span className="font-mono font-semibold text-text">{fmt(buyingPower)}</span>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginTop: 12, fontSize: 10, color: 'var(--color-muted)', fontFamily: 'var(--font-mono)',
+        }}>
+          <span>Buying power</span>
+          <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{fmt(buyingPower)}</span>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
-  /* ── Non-compact (legacy) ── */
+  // ── Non-compact (legacy/fallback) ─────────────────────────────────────────
   return (
-    <div className="p-4">
-      <div className="flex border-b border-border mb-3">
-        <button onClick={() => setSide('buy')}
-          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'buy' ? 'text-gain border-gain' : 'text-muted border-transparent'}`}>Buy</button>
-        <button onClick={() => setSide('sell')}
-          className={`flex-1 py-2 text-center text-sm font-semibold border-b-2 transition-all duration-200 ${side === 'sell' ? 'text-loss border-loss' : 'text-muted border-transparent'}`}>Sell</button>
+    <div style={{ padding: 16 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: 12 }}>
+        {(['buy', 'sell'] as const).map((s) => (
+          <button key={s} onClick={() => setSide(s)} style={{
+            flex: 1, padding: '8px 0', background: 'none', border: 'none',
+            borderBottom: `2px solid ${side === s ? (s === 'buy' ? 'var(--color-gain)' : 'var(--color-loss)') : 'transparent'}`,
+            color: side === s ? 'var(--color-text)' : 'var(--color-muted)',
+            fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
+            textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.06em',
+          }}>
+            {s}
+          </button>
+        ))}
       </div>
-      <div className="mb-3">
-        <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1 block">Quantity</label>
-        <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="w-full h-[34px] px-3 terminal-input text-sm focus:border-accent" />
+      <div style={{ marginBottom: 10 }}>
+        <label style={labelStyle}>Quantity</label>
+        <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} style={inputStyle} />
       </div>
-      <div className="mb-3">
-        <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1 block">Order Type</label>
-        <select value={orderType} onChange={(e) => setOrderType(e.target.value)} className="w-full h-[34px] px-3 terminal-input text-sm focus:border-accent"><option value="market">Market</option><option value="limit">Limit</option></select>
+      <div style={{ marginBottom: 10 }}>
+        <label style={labelStyle}>Order Type</label>
+        <select value={orderType} onChange={(e) => setOrderType(e.target.value)} style={inputStyle}>
+          <option value="market">Market</option>
+          <option value="limit">Limit</option>
+        </select>
       </div>
-      <div className="mb-3">
-        <label className="text-[10px] font-mono font-semibold text-muted uppercase tracking-widest mb-1 block">Time in Force</label>
-        <select value={tif} onChange={(e) => setTif(e.target.value)} className="w-full h-[34px] px-3 terminal-input text-sm focus:border-accent"><option value="day">DAY</option><option value="gtc">GTC</option></select>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-muted)', marginBottom: 4 }}>
+        <span>Est. Cost</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-text)' }}>{estCost ? fmt(estCost) : '$–'}</span>
       </div>
-      <div className="flex justify-between text-xs text-muted mb-1"><span>Estimated Cost</span><span className="text-text font-semibold font-mono">{estCost ? fmt(estCost) : '$–'}</span></div>
-      <div className="flex justify-between text-xs text-muted mb-3"><span>Buying Power</span><span className="text-text font-semibold font-mono">{fmt(buyingPower)}</span></div>
-      <button disabled={submitting} onClick={submit} className={`w-full h-10 rounded-sm text-white text-sm font-bold font-mono disabled:opacity-40 hover:opacity-90 transition-opacity ${isBuy ? 'bg-gain' : 'bg-loss'}`}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-muted)', marginBottom: 12 }}>
+        <span>Buying Power</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-text)' }}>{fmt(buyingPower)}</span>
+      </div>
+      <button disabled={submitting} onClick={submit} style={{
+        width: '100%', height: 40, borderRadius: 999, border: 'none',
+        background: isBuy ? 'var(--color-gain)' : 'var(--color-loss)',
+        color: '#fff', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)',
+        textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer',
+        opacity: submitting ? 0.5 : 1,
+      }}>
         {submitting ? 'Submitting…' : `${isBuy ? 'Buy' : 'Sell'} ${symbol}`}
       </button>
     </div>

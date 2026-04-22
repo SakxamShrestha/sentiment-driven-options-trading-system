@@ -7,6 +7,7 @@ import { PortfolioAreaChart } from '../components/charts/PortfolioAreaChart';
 import { AnimatedNumber } from '../components/shared/AnimatedNumber';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SentimentArticle } from '../types';
+import ChatWidget from '../components/shared/ChatWidget';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -23,35 +24,29 @@ function timeAgo(dateStr: string | null | undefined): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-function sentimentMeta(score: number | null | undefined) {
-  const s = score ?? 0;
-  if (s >= 0.2)  return { label: 'BULLISH', color: 'var(--color-gain)', bg: 'var(--color-gain-soft)' };
-  if (s <= -0.2) return { label: 'BEARISH', color: 'var(--color-loss)', bg: 'var(--color-loss-soft)' };
-  return           { label: 'NEUTRAL',  color: 'var(--color-muted)', bg: 'var(--color-hover)' };
-}
-
 // ── News Article Card ─────────────────────────────────────────────────────────
 
 interface NewsItem extends SentimentArticle {
   ticker: string;
 }
 
-function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
-  const s    = item.score ?? 0;
-  const sent = sentimentMeta(s);
-
-  const thumbBg = s >= 0.2
+function NewsCard({ item, changePct, delay }: { item: NewsItem; changePct?: number; delay: number }) {
+  const isUp      = changePct != null ? changePct >= 0 : null;
+  const priceColor = isUp === true
+    ? 'var(--color-gain)'
+    : isUp === false
+    ? 'var(--color-loss)'
+    : 'var(--color-muted)';
+  const thumbBg = isUp === true
     ? 'rgba(22,163,74,0.07)'
-    : s <= -0.2
+    : isUp === false
     ? 'rgba(220,38,38,0.07)'
     : 'var(--color-surface)';
-  const thumbBorderColor = s >= 0.2
+  const thumbBorderColor = isUp === true
     ? 'rgba(22,163,74,0.18)'
-    : s <= -0.2
+    : isUp === false
     ? 'rgba(220,38,38,0.18)'
     : 'var(--color-border)';
-
-  const directionArrow = s >= 0.2 ? '▲' : s <= -0.2 ? '▼' : '–';
 
   return (
     <motion.div
@@ -84,7 +79,7 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
           {item.headline || '(no headline)'}
         </h3>
 
-        {/* Contextual asset info — bottom left */}
+        {/* Ticker + daily price movement */}
         <div className="flex items-center gap-2.5 mt-1">
           <span
             className="text-[11px] font-mono font-bold"
@@ -92,18 +87,18 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
           >
             {item.ticker}
           </span>
-          <span
-            className="text-[11px] font-mono font-medium tabular-nums"
-            style={{ color: sent.color }}
-          >
-            {directionArrow} {Math.abs(s).toFixed(3)}
-          </span>
-          <span
-            className="text-[10px] font-mono font-semibold px-1.5 py-[2px]"
-            style={{ background: sent.bg, color: sent.color, borderRadius: 2 }}
-          >
-            {sent.label}
-          </span>
+          {changePct != null ? (
+            <span
+              className="text-[11px] font-mono font-semibold tabular-nums px-1.5 py-[2px]"
+              style={{
+                color: priceColor,
+                background: isUp ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+                borderRadius: 2,
+              }}
+            >
+              {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+            </span>
+          ) : null}
           {item.url && (
             <span
               className="ml-auto text-[11px] font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-150"
@@ -115,9 +110,9 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
         </div>
       </div>
 
-      {/* ── Right: thumbnail placeholder ─────────────────────────────── */}
+      {/* ── Right: thumbnail ─────────────────────────────────────────── */}
       <div
-        className="shrink-0 flex items-center justify-center overflow-hidden self-center"
+        className="shrink-0 flex flex-col items-center justify-center overflow-hidden self-center gap-0.5"
         style={{
           width: 88,
           height: 66,
@@ -127,11 +122,19 @@ function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
         }}
       >
         <span
-          className="font-mono font-black select-none tabular-nums"
-          style={{ fontSize: 17, letterSpacing: '-0.04em', color: sent.color, opacity: 0.3 }}
+          className="font-mono font-black select-none"
+          style={{ fontSize: 13, letterSpacing: '-0.02em', color: priceColor, opacity: 0.5 }}
         >
           {item.ticker}
         </span>
+        {changePct != null && (
+          <span
+            className="font-mono font-bold tabular-nums select-none"
+            style={{ fontSize: 14, color: priceColor }}
+          >
+            {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+          </span>
+        )}
       </div>
 
     </motion.div>
@@ -173,6 +176,7 @@ export default function Home() {
   const [newsLoading, setNewsLoading]     = useState(false);
   const [newsLoaded, setNewsLoaded]       = useState(false);
   const [trendingTickers, setTrendingTickers] = useState<string[]>([]);
+  const [snapshots, setSnapshots]             = useState<Record<string, number>>({});
 
   // ── Fetching ────────────────────────────────────────────────────────────────
 
@@ -198,9 +202,20 @@ export default function Home() {
 
       setTrendingTickers(tickers);
 
-      const results = await Promise.allSettled(
-        tickers.map((sym) => api.getSentiment(sym, 4))
-      );
+      // Fetch news + daily snapshots in parallel
+      const [results, snapshotResults] = await Promise.all([
+        Promise.allSettled(tickers.map((sym) => api.getSentiment(sym, 4))),
+        Promise.allSettled(tickers.map((sym) => api.getSnapshot(sym))),
+      ]);
+
+      // Build ticker → daily change% map
+      const snapshotMap: Record<string, number> = {};
+      snapshotResults.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value.change_pct != null) {
+          snapshotMap[tickers[i]] = r.value.change_pct;
+        }
+      });
+      setSnapshots(snapshotMap);
       const items: NewsItem[] = [];
       const seen = new Set<string>();
       results.forEach((r, i) => {
@@ -209,7 +224,15 @@ export default function Home() {
           const key = a.article_id || a.headline;
           if (!key || seen.has(key)) return;
           seen.add(key);
-          items.push({ ...a, ticker: tickers[i] });
+          // Use the query ticker only if the article actually tags it in symbols.
+          // Otherwise use the article's primary symbol so we don't mislabel
+          // e.g. an AAPL article that mentions NVDA in passing as "NVDA".
+          const articleSymbols: string[] = (a.symbols ?? []).map((s: string) => s.toUpperCase());
+          const queryTicker = tickers[i].toUpperCase();
+          const label = articleSymbols.includes(queryTicker)
+            ? queryTicker
+            : (articleSymbols[0] ?? queryTicker);
+          items.push({ ...a, ticker: label });
         });
       });
       items.sort((a, b) => {
@@ -248,6 +271,7 @@ export default function Home() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="max-w-4xl">
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
@@ -514,6 +538,7 @@ export default function Home() {
               <NewsCard
                 key={item.article_id || `${item.ticker}-${i}`}
                 item={item}
+                changePct={snapshots[item.ticker]}
                 delay={i * 0.035}
               />
             ))}
@@ -522,5 +547,7 @@ export default function Home() {
       </motion.div>
 
     </div>
+    <ChatWidget />
+    </>
   );
 }
