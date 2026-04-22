@@ -59,6 +59,8 @@ export const api = {
     qty: number; price?: number | null;
   }) => post<{ ok: boolean }>('/api/log-trade', body),
 
+  getMostActives: (top = 8) =>
+    get<{ symbols: string[]; fallback?: boolean }>(`/api/alpaca/most-actives?top=${top}`),
   getSentiment: (ticker: string, limit = 12) =>
     get<SentimentResult>(`/api/sentiment/by_ticker?ticker=${encodeURIComponent(ticker)}&limit=${limit}`),
   getSentimentLlama: (ticker: string, limit = 6) =>

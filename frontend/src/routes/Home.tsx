@@ -10,8 +10,7 @@ import type { SentimentArticle } from '../types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const NEWS_TICKERS = ['SPY', 'AAPL', 'TSLA', 'NVDA'] as const;
-type NewsTicker = (typeof NEWS_TICKERS)[number];
+const FALLBACK_TICKERS = ['SPY', 'AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +33,7 @@ function sentimentMeta(score: number | null | undefined) {
 // ── News Article Card ─────────────────────────────────────────────────────────
 
 interface NewsItem extends SentimentArticle {
-  ticker: NewsTicker;
+  ticker: string;
 }
 
 function NewsCard({ item, delay }: { item: NewsItem; delay: number }) {
@@ -173,6 +172,7 @@ export default function Home() {
   const [news, setNews]                   = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading]     = useState(false);
   const [newsLoaded, setNewsLoaded]       = useState(false);
+  const [trendingTickers, setTrendingTickers] = useState<string[]>([]);
 
   // ── Fetching ────────────────────────────────────────────────────────────────
 
@@ -189,8 +189,17 @@ export default function Home() {
     if (newsLoaded) return;
     setNewsLoading(true);
     try {
+      // Fetch today's most actively traded tickers, fall back to defaults
+      let tickers = FALLBACK_TICKERS;
+      try {
+        const { symbols } = await api.getMostActives(8);
+        if (symbols.length > 0) tickers = symbols;
+      } catch { /* use fallback */ }
+
+      setTrendingTickers(tickers);
+
       const results = await Promise.allSettled(
-        NEWS_TICKERS.map((sym) => api.getSentiment(sym, 5))
+        tickers.map((sym) => api.getSentiment(sym, 4))
       );
       const items: NewsItem[] = [];
       const seen = new Set<string>();
@@ -200,7 +209,7 @@ export default function Home() {
           const key = a.article_id || a.headline;
           if (!key || seen.has(key)) return;
           seen.add(key);
-          items.push({ ...a, ticker: NEWS_TICKERS[i] });
+          items.push({ ...a, ticker: tickers[i] });
         });
       });
       items.sort((a, b) => {
@@ -427,11 +436,36 @@ export default function Home() {
 
         {/* Section header */}
         <div className="mb-6 pt-2">
-          <h2 className="text-[22px] font-mono font-bold tracking-[0.18em] uppercase"
-              style={{ letterSpacing: '0.15em' }}>
-            NEWS
-          </h2>
-          <div className="mt-2 h-[2px] w-12" style={{ background: 'var(--color-accent)' }} />
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-[22px] font-mono font-bold tracking-[0.18em] uppercase"
+                  style={{ letterSpacing: '0.15em' }}>
+                NEWS
+              </h2>
+              <div className="mt-2 h-[2px] w-12" style={{ background: 'var(--color-accent)' }} />
+            </div>
+            {trendingTickers.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] font-mono text-muted uppercase tracking-widest mr-1">
+                  Trending
+                </span>
+                {trendingTickers.map((t) => (
+                  <span
+                    key={t}
+                    className="text-[10px] font-mono font-semibold px-2 py-0.5"
+                    style={{
+                      background: 'var(--color-hover)',
+                      color: 'var(--color-accent)',
+                      borderRadius: 2,
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="terminal-card overflow-hidden">

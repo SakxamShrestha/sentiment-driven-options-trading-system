@@ -326,6 +326,34 @@ def get_portfolio_history():
     })
 
 
+@trading_bp.route("/most-actives", methods=["GET"])
+def get_most_actives():
+    """
+    Return today's most actively traded stocks by volume from Alpaca screener.
+    Query param: top (default 8, max 20).
+    """
+    try:
+        top = min(int(request.args.get("top", 8)), 20)
+    except ValueError:
+        top = 8
+
+    try:
+        r = req.get(
+            f"{_DATA}/v1beta1/screener/stocks/most-actives",
+            headers=_HEADERS,
+            params={"by": "volume", "top": top},
+            timeout=8,
+        )
+        r.raise_for_status()
+        data = r.json()
+        symbols = [item["symbol"] for item in data.get("most_actives", []) if item.get("symbol")]
+        return jsonify({"symbols": symbols})
+    except Exception as e:
+        logger.warning("Most-actives fetch failed: %s", e)
+        # Fallback to market bellwethers if Alpaca screener is unavailable
+        return jsonify({"symbols": ["SPY", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN"], "fallback": True})
+
+
 @trading_bp.route("/backtest/<symbol>", methods=["GET"])
 def run_backtest(symbol: str):
     """
