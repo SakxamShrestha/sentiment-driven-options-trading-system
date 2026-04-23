@@ -88,6 +88,7 @@ export interface SentimentArticle {
   headline: string;
   summary?: string;
   url?: string;
+  symbols?: string[];
   source: string;
   score: number;
   model_used: string;
