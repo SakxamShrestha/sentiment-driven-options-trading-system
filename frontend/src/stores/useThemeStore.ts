@@ -9,7 +9,7 @@ interface ThemeState {
 }
 
 const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) as Theme | null;
-const initial: Theme = saved === 'dark' ? 'dark' : 'light';
+const initial: Theme = saved === 'light' ? 'light' : 'dark';
 
 if (initial === 'dark') document.documentElement.classList.add('dark');
 
