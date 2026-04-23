@@ -185,7 +185,7 @@ export default function StockDetail() {
               borderTop: '1px solid var(--color-border)',
               padding: '0 16px',
             }}>
-              {TIMEFRAMES.map((t: string) => (
+              {TIMEFRAMES.map((t: Timeframe) => (
                 <button
                   key={t}
                   onClick={() => setTf(t)}
