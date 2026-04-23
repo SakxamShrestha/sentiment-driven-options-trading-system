@@ -54,11 +54,19 @@ class Settings:
     # Anthropic API
     ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
     
-    # Redis
-    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+    # Redis — supports Railway's auto-injected REDIS_URL or manual host/port
+    REDIS_URL = os.getenv('REDIS_URL', '')
+    if REDIS_URL:
+        from urllib.parse import urlparse as _urlparse
+        _r = _urlparse(REDIS_URL)
+        REDIS_HOST = _r.hostname or 'localhost'
+        REDIS_PORT = _r.port or 6379
+        REDIS_PASSWORD = _r.password or ''
+    else:
+        REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+        REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+        REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
     REDIS_DB = int(os.getenv('REDIS_DB', 0))
-    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
     
     # Trading Configuration
     DEFAULT_TICKER = os.getenv('DEFAULT_TICKER', 'SPY')
@@ -75,7 +83,7 @@ class Settings:
     
     # Flask Configuration
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
-    FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
+    FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     # Railway sets PORT automatically; fall back to FLASK_PORT for local dev
     FLASK_PORT = int(os.getenv('PORT') or os.getenv('FLASK_PORT', '5001'))
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')

@@ -8,11 +8,11 @@ os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")  # Keras 3 → tf-keras compat
 
 from flask import Flask, send_from_directory
 from flask_socketio import SocketIO
-
 from config.settings import settings
 from utils.logger import setup_logger
 from api.routes.dashboard import dashboard_bp
 from api.routes.trading import trading_bp
+from api.limiter import limiter
 from services.pipeline import NewsPipeline
 from services.data_ingestion import AlpacaNewsStreamService
 
@@ -22,6 +22,15 @@ logger = setup_logger(__name__)
 # Initialize Flask app
 app = Flask(__name__, static_folder="static")
 app.config["SECRET_KEY"] = settings.SECRET_KEY
+
+# Rate limiter — backs off to in-memory if Redis is unavailable
+limiter.init_app(app)
+app.config["RATELIMIT_DEFAULT"] = ["200 per hour", "30 per minute"]
+app.config["RATELIMIT_STORAGE_URI"] = (
+    settings.REDIS_URL
+    or (f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}" if settings.REDIS_HOST else "memory://")
+)
+
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(trading_bp)
 
@@ -106,5 +115,5 @@ if __name__ == "__main__":
         host='0.0.0.0',
         port=port,
         debug=settings.FLASK_DEBUG,
-        allow_unsafe_werkzeug=True
+        allow_unsafe_werkzeug=settings.FLASK_DEBUG,
     )

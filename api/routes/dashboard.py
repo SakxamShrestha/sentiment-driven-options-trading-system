@@ -7,6 +7,7 @@ from typing import Optional
 from flask import Blueprint, jsonify, request
 
 from db import RedisState, SQLiteRepository
+from api.limiter import limiter
 from services.data_ingestion import fetch_all_sources
 from services.data_ingestion.lunarcrush_service import LunarCrushService
 from services.intelligence.sentiment_engine import SentimentEngine
@@ -56,6 +57,7 @@ def list_sentiment():
 
 
 @dashboard_bp.route("/sentiment/by_ticker", methods=["GET"])
+@limiter.limit("10 per minute; 50 per hour")
 def sentiment_by_ticker():
     """
     On-demand sentiment snapshot for a specific ticker.
@@ -246,6 +248,7 @@ def lunarcrush_buzz(symbol: str):
 
 
 @dashboard_bp.route("/sentiment/composite", methods=["GET"])
+@limiter.limit("10 per minute; 50 per hour")
 def sentiment_composite():
     """
     Composite multi-signal sentiment for a ticker.

@@ -1,5 +1,6 @@
 [build]
 builder = "NIXPACKS"
+installCommand = "pip install -r requirements-prod.txt"
 buildCommand = "cd frontend && npm install && npm run build"
 
 [deploy]
